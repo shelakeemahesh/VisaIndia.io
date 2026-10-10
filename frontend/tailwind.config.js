@@ -20,15 +20,28 @@ export default {
           900: '#0a3c6f',
           950: '#07264a',
         },
+        navy: {
+          900: '#070D1E',
+          950: '#030712',
+          800: '#0B1530',
+        },
         accent: {
           50: '#fff7ed',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          500: '#E86A33',
+          600: '#D9531E',
+          700: '#C2410C',
         }
       },
       fontFamily: {
+        serif: [
+          '"Playfair Display"',
+          'Georgia',
+          'serif',
+        ],
         sans: [
+          '"Plus Jakarta Sans"',
           'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
