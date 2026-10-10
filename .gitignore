@@ -1,0 +1,48 @@
+# Operating System
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+coverage/
+.vitest/
+playwright-report/
+test-results/
+
+# Java / Maven / Backend
+target/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# Logs
+logs/
+*.log
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+!*.example
+
+# Build & Temporary
+tmp/
+temp/
+scratch/
