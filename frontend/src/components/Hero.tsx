@@ -7,17 +7,17 @@ import { ALL_COUNTRIES } from '../data/countries';
 export const INDIA_TOURIST_DESTINATIONS = [
   {
     id: 1,
-    name: 'Taj Mahal',
+    name: 'Taj Mahal & Lotus Reflection',
     location: 'Agra, Uttar Pradesh',
-    badge: '#01 Wonder of the World',
-    image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=2000&q=85',
+    badge: '#01 AI Wonder of the World',
+    image: '/images/ai-india-heritage.jpg',
   },
   {
     id: 2,
-    name: 'Varanasi Ghats',
-    location: 'Varanasi, Uttar Pradesh',
-    badge: '#02 Spiritual Capital',
-    image: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=2000&q=85',
+    name: 'Varanasi Ghats & Hawa Mahal',
+    location: 'Varanasi & Jaipur Heritage',
+    badge: '#02 Spiritual & Royal Montage',
+    image: '/images/ai-india-tourist-montage.jpg',
   },
   {
     id: 3,

@@ -26,6 +26,26 @@ public class User {
     @Builder.Default
     private String role = "ROLE_TRAVELER";
 
+    @Column(name = "full_name", length = 150)
+    @Builder.Default
+    private String fullName = "Traveler";
+
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
+    @Column(length = 100)
+    private String nationality;
+
+    @Column(name = "passport_number", length = 50)
+    private String passportNumber;
+
+    @Column(name = "phone_number", length = 50)
+    private String phoneNumber;
+
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = true;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;

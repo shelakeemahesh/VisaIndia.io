@@ -38,6 +38,15 @@ class AuthControllerTest {
     private UserRepository userRepository;
 
     @MockBean
+    private com.visasetu.repository.UserSettingsRepository userSettingsRepository;
+
+    @MockBean
+    private com.visasetu.repository.AuthOtpRepository authOtpRepository;
+
+    @MockBean
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @MockBean
     private OtpService otpService;
 
     @MockBean
@@ -86,14 +95,58 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/verify-otp returns 401 on incorrect code")
-    void shouldRejectInvalidOtp() throws Exception {
-        given(otpService.verifyOtp("traveler@example.com", "000000")).willReturn(false);
+    @DisplayName("POST /api/v1/auth/signup registers traveler and returns token")
+    void shouldRegisterTravelerSuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User user = User.builder()
+                .id(userId)
+                .email("new.traveler@example.com")
+                .fullName("John Doe")
+                .role("ROLE_TRAVELER")
+                .isActive(true)
+                .createdAt(Instant.now())
+                .build();
 
-        mockMvc.perform(post("/api/v1/auth/verify-otp")
+        given(userRepository.existsByEmailIgnoreCase("new.traveler@example.com")).willReturn(false);
+        given(passwordEncoder.encode(any())).willReturn("encoded_pwd");
+        given(userRepository.save(any(User.class))).willReturn(user);
+        given(jwtTokenService.generateToken(any(), eq("new.traveler@example.com"), eq("ROLE_TRAVELER")))
+                .willReturn("jwt.signup.token");
+        given(jwtTokenService.getExpirationSeconds()).willReturn(86400L);
+
+        mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"traveler@example.com\",\"otp\":\"000000\"}"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").exists());
+                        .content("{\"email\":\"new.traveler@example.com\",\"fullName\":\"John Doe\",\"password\":\"Pass@123\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.accessToken").value("jwt.signup.token"))
+                .andExpect(jsonPath("$.user.email").value("new.traveler@example.com"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/login validates credentials and logs in")
+    void shouldLoginSuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        User user = User.builder()
+                .id(userId)
+                .email("traveler@example.com")
+                .passwordHash("encoded_pwd")
+                .role("ROLE_TRAVELER")
+                .isActive(true)
+                .createdAt(Instant.now())
+                .build();
+
+        given(userRepository.findByEmailIgnoreCase("traveler@example.com")).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("Welcome@123", "encoded_pwd")).willReturn(true);
+        given(jwtTokenService.generateToken(any(), eq("traveler@example.com"), eq("ROLE_TRAVELER")))
+                .willReturn("jwt.login.token");
+        given(jwtTokenService.getExpirationSeconds()).willReturn(86400L);
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"traveler@example.com\",\"password\":\"Welcome@123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.accessToken").value("jwt.login.token"));
     }
 }

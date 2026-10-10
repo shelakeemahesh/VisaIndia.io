@@ -100,13 +100,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const navLinks = [
+    { label: t('nav.home', 'Home'), to: '/' },
+    { label: t('nav.dashboard', 'Dashboard'), to: '/dashboard' },
     { label: t('nav.visaCategories', 'Visa categories'), to: '/visa-categories' },
     { label: t('nav.requirements', 'Requirements'), to: '/requirements' },
     { label: t('nav.howItWorks', 'How it works'), to: '/how-it-works' },
-    { label: t('nav.dashboard', 'User Dashboard'), to: '/dashboard' },
-    { label: t('nav.existingApplications', 'Existing applications'), to: '/existing-applications' },
-    { label: t('nav.notices', 'Notices'), to: '/notices' },
-    { label: t('nav.help', 'Help'), to: '/help' },
   ];
 
   return (
@@ -127,6 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <NavLink
                   key={link.to}
                   to={link.to}
+                  end={link.to === '/'}
                   className={({ isActive }) =>
                     `transition-colors py-1 ${
                       isActive
@@ -138,19 +137,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {link.label}
                 </NavLink>
               ))}
-
-              {/* Connect AI agent link */}
-              <NavLink
-                to="/connect-ai-agent"
-                className={({ isActive }) =>
-                  `inline-flex items-center space-x-1.5 transition-colors font-medium pl-1 ${
-                    isActive ? 'text-brand-600 font-bold' : 'text-slate-800 hover:text-brand-600'
-                  }`
-                }
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                <span>Connect AI agent</span>
-              </NavLink>
             </nav>
 
             {/* Right: Actions, Language Switcher, Aa and Hamburger */}
@@ -291,22 +277,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </NavLink>
               ))}
 
-              <NavLink
-                to="/connect-ai-agent"
-                onClick={() => setMobileDrawerOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-brand-700 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`
-                }
-              >
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                <span>Connect AI agent</span>
-              </NavLink>
-
-              <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
+              <div className="pt-4 mt-4 border-t border-slate-100 space-y-2.5">
                 <Link
                   to="/start-application"
                   onClick={() => setMobileDrawerOpen(false)}
@@ -317,18 +288,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </Link>
 
                 <Link
-                  to="/dashboard"
+                  to="/dashboard?tab=existing"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-teal-50 border border-teal-200 text-xs font-bold text-teal-900"
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 hover:bg-slate-100"
                 >
-                  <span>User Dashboard</span>
+                  <span>Track Application Status</span>
+                  <span>&gt;</span>
+                </Link>
+
+                <Link
+                  to="/dashboard?tab=ai-agent"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-blue-50/70 border border-blue-200 text-xs font-semibold text-blue-900 hover:bg-blue-100"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Connect AI Agent</span>
+                  </span>
                   <span>&gt;</span>
                 </Link>
 
                 <Link
                   to="/visa-categories#oci"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800"
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <span>OCI Card Services</span>
                   <span>&gt;</span>
