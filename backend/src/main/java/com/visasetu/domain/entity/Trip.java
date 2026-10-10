@@ -24,13 +24,22 @@ public class Trip {
     @Column(name = "reference_id", nullable = false, unique = true, length = 50)
     private String referenceId;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "applicant_email", nullable = false, length = 150)
     private String applicantEmail;
 
     @Column(name = "applicant_name", nullable = false)
     private String applicantName;
 
-    @Column(nullable = false, length = 3)
+    @Column(name = "passport_number_encrypted", columnDefinition = "TEXT")
+    private String passportNumberEncrypted;
+
+    @Column(name = "date_of_birth_encrypted", columnDefinition = "TEXT")
+    private String dateOfBirthEncrypted;
+
+    @Column(nullable = false, length = 100)
     private String nationality;
 
     @Column(name = "category_name", nullable = false)

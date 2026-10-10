@@ -11,6 +11,8 @@ import java.util.UUID;
 @Repository
 public interface TripRepository extends JpaRepository<Trip, UUID> {
     Optional<Trip> findByReferenceIdIgnoreCase(String referenceId);
+    Optional<Trip> findByReferenceIdIgnoreCaseAndUserId(String referenceId, UUID userId);
+    List<Trip> findByUserIdOrderByCreatedAtDesc(UUID userId);
     List<Trip> findByApplicantEmailIgnoreCaseOrderByCreatedAtDesc(String applicantEmail);
     List<Trip> findByStatusOrderByCreatedAtAsc(String status);
 }
