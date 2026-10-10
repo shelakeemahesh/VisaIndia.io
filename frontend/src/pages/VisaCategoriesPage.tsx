@@ -271,20 +271,29 @@ export const VisaCategoriesPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="bg-slate-50 p-3.5 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
                   <button
                     type="button"
                     onClick={() => navigate(`/?nationality=${selectedNationality}&purpose=${cat.purposeCode}#checker`)}
-                    className="text-xs font-semibold text-teal-700 hover:text-teal-900 py-1.5 px-3 rounded hover:bg-teal-50 transition-colors"
+                    className="text-xs font-semibold text-slate-600 hover:text-teal-700 py-1.5 px-2.5 rounded hover:bg-slate-100 transition-colors"
                   >
-                    Check Eligibility →
+                    Eligibility
                   </button>
-                  <Link
-                    to={`/visa-categories/${cat.slug}`}
-                    className="text-xs font-semibold bg-teal-700 text-white hover:bg-teal-800 py-1.5 px-3 rounded shadow-sm transition-colors"
-                  >
-                    Full Details
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      to={`/visa-categories/${cat.slug}`}
+                      className="text-xs font-semibold text-teal-800 bg-white hover:bg-teal-50 py-1.5 px-2.5 rounded border border-teal-200 transition-colors"
+                    >
+                      Specs
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/apply?purpose=${cat.purposeCode}&category=${encodeURIComponent(cat.name)}&nationality=${selectedNationality}`)}
+                      className="text-xs font-bold bg-teal-700 text-white hover:bg-teal-800 py-1.5 px-3 rounded shadow-sm transition-colors cursor-pointer"
+                    >
+                      Apply →
+                    </button>
+                  </div>
                 </div>
               </div>
             );

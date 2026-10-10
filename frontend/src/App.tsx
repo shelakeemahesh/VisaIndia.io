@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { OciSection } from './components/OciSection';
@@ -10,6 +10,7 @@ import { AiAgentModal } from './components/AiAgentModal';
 import { HashRedirector } from './components/HashRedirector';
 
 // Pages
+import { ApplyPage } from './pages/ApplyPage';
 import { VisaCategoriesPage } from './pages/VisaCategoriesPage';
 import { CategoryDetailPage } from './pages/CategoryDetailPage';
 import { RequirementsPage } from './pages/RequirementsPage';
@@ -52,15 +53,14 @@ const HomePage: React.FC<{
   onOpenAiAgent,
   pinnedNotice,
 }) => {
+  const navigate = useNavigate();
+
   const handleStartApplication = () => {
-    const el = document.getElementById('route-comparison');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    navigate(`/apply?nationality=${selectedNationality}&purpose=${selectedPurpose}`);
   };
 
   const handleSelectCategory = (purposeCode: string) => {
-    setSelectedPurpose(purposeCode);
-    const heroEl = document.querySelector('section');
-    if (heroEl) heroEl.scrollIntoView({ behavior: 'smooth' });
+    navigate(`/apply?purpose=${purposeCode}&nationality=${selectedNationality}`);
   };
 
   return (
@@ -101,8 +101,7 @@ const HomePage: React.FC<{
       {/* OCI Card Section Teaser */}
       <OciSection
         onStartOci={() => {
-          const el = document.getElementById('route-comparison');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
+          navigate('/apply?purpose=OCI');
         }}
       />
 
@@ -121,7 +120,15 @@ const HomePage: React.FC<{
 
       {/* Eligibility Checker & Full Route Comparison */}
       <div id="route-comparison" className="bg-slate-50/70 border-t border-slate-200">
-        <EligibilityChecker />
+        <EligibilityChecker
+          onSelectRoute={(route, nationality, purpose) => {
+            navigate(
+              `/apply?nationality=${nationality}&purpose=${purpose}&category=${encodeURIComponent(
+                route.title
+              )}`
+            );
+          }}
+        />
       </div>
 
       {/* Teaser Banners Linking to Other Deep Pages */}
@@ -279,6 +286,7 @@ export const App: React.FC = () => {
           />
           <Route path="/visa-categories" element={<VisaCategoriesPage />} />
           <Route path="/visa-categories/:slug" element={<CategoryDetailPage />} />
+          <Route path="/apply" element={<ApplyPage />} />
           <Route path="/requirements" element={<RequirementsPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/existing-applications" element={<ExistingApplicationsPage />} />

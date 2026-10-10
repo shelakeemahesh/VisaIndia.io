@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { PageTemplate } from '../components/PageTemplate';
 import { trackApplication, resyncPayment, TrackApplicationResponse } from '../api/content';
+import { getEtaPdfDownloadUrl, getQrPassImageUrl } from '../api/trips';
 
 export const ExistingApplicationsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -365,21 +366,29 @@ export const ExistingApplicationsPage: React.FC = () => {
                     </div>
 
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                      <a
+                        href={getEtaPdfDownloadUrl(result.referenceId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
                       >
-                        Print / Save ETA (PDF)
-                      </button>
+                        <span>Download Official ETA (PDF)</span>
+                        <span>↗</span>
+                      </a>
                     </div>
                   </div>
 
                   {result.qrData && (
                     <div className="mt-5 p-4 bg-white rounded-xl border border-emerald-200 flex items-center gap-4">
-                      <div className="w-16 h-16 bg-slate-100 border border-slate-300 rounded flex items-center justify-center font-mono text-[9px] text-slate-500 text-center p-1">
-                        [QR CODE]
-                      </div>
+                      <img
+                        src={getQrPassImageUrl(result.referenceId)}
+                        alt="Biometric e-Gate Token"
+                        className="w-16 h-16 bg-white border border-slate-300 rounded p-0.5 object-contain"
+                        onError={(e) => {
+                          // Fallback to text box if server QR not generated yet
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                       <div className="text-xs">
                         <span className="font-semibold text-slate-800 block">Biometric e-Gate Token:</span>
                         <code className="text-[11px] text-teal-800 font-mono break-all">{result.qrData}</code>
@@ -395,9 +404,15 @@ export const ExistingApplicationsPage: React.FC = () => {
               <h3 className="text-base font-bold text-slate-700 mb-1">
                 No Application Selected
               </h3>
-              <p className="text-xs max-w-sm mx-auto">
+              <p className="text-xs max-w-sm mx-auto mb-4">
                 Select one of the demo presets above or enter your Reference ID to inspect status, timeline, and ETA passes.
               </p>
+              <Link
+                to="/apply"
+                className="inline-block px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-colors cursor-pointer"
+              >
+                Start New 3-in-1 Application →
+              </Link>
             </div>
           )}
         </div>

@@ -207,15 +207,24 @@ export const CategoryDetailPage: React.FC = () => {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => navigate(`/?purpose=${category.purposeCode}#checker`)}
-                className="w-full py-3 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-semibold text-sm shadow-sm transition-colors text-center cursor-pointer"
+                onClick={() => navigate(`/apply?purpose=${category.purposeCode}&category=${encodeURIComponent(category.name)}`)}
+                className="w-full py-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-bold text-sm shadow-md shadow-teal-700/20 transition-all text-center cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Check My Country’s Eligibility
+                <span>Apply for this Visa Now</span>
+                <span>→</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/?purpose=${category.purposeCode}#checker`)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold text-xs transition-colors text-center cursor-pointer"
+              >
+                Check Country Eligibility & Fee Bands
               </button>
 
               <Link
                 to="/requirements"
-                className="w-full block py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold text-sm transition-colors text-center"
+                className="w-full block py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg font-medium text-xs transition-colors text-center"
               >
                 Verify Photo & Passport Specs
               </Link>
