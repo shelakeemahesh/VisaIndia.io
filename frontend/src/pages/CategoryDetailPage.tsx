@@ -207,7 +207,7 @@ export const CategoryDetailPage: React.FC = () => {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => navigate(`/apply?purpose=${category.purposeCode}&category=${encodeURIComponent(category.name)}`)}
+                onClick={() => navigate(`/start-application?purpose=${category.purposeCode}&category=${encodeURIComponent(category.name)}`)}
                 className="w-full py-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-bold text-sm shadow-md shadow-teal-700/20 transition-all text-center cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>Apply for this Visa Now</span>

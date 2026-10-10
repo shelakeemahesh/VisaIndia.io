@@ -288,7 +288,7 @@ export const VisaCategoriesPage: React.FC = () => {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => navigate(`/apply?purpose=${cat.purposeCode}&category=${encodeURIComponent(cat.name)}&nationality=${selectedNationality}`)}
+                      onClick={() => navigate(`/start-application?purpose=${cat.purposeCode}&category=${encodeURIComponent(cat.name)}&nationality=${selectedNationality}`)}
                       className="text-xs font-bold bg-teal-700 text-white hover:bg-teal-800 py-1.5 px-3 rounded shadow-sm transition-colors cursor-pointer"
                     >
                       Apply →

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { OciSection } from './components/OciSection';
@@ -10,7 +10,7 @@ import { AiAgentModal } from './components/AiAgentModal';
 import { HashRedirector } from './components/HashRedirector';
 
 // Pages
-import { ApplyPage } from './pages/ApplyPage';
+import { StartApplicationPage } from './pages/StartApplicationPage';
 import { VisaCategoriesPage } from './pages/VisaCategoriesPage';
 import { CategoryDetailPage } from './pages/CategoryDetailPage';
 import { RequirementsPage } from './pages/RequirementsPage';
@@ -56,11 +56,11 @@ const HomePage: React.FC<{
   const navigate = useNavigate();
 
   const handleStartApplication = () => {
-    navigate(`/apply?nationality=${selectedNationality}&purpose=${selectedPurpose}`);
+    navigate(`/start-application?nationality=${selectedNationality}&purpose=${selectedPurpose}`);
   };
 
   const handleSelectCategory = (purposeCode: string) => {
-    navigate(`/apply?purpose=${purposeCode}&nationality=${selectedNationality}`);
+    navigate(`/start-application?purpose=${purposeCode}&nationality=${selectedNationality}`);
   };
 
   return (
@@ -101,7 +101,7 @@ const HomePage: React.FC<{
       {/* OCI Card Section Teaser */}
       <OciSection
         onStartOci={() => {
-          navigate('/apply?purpose=OCI');
+          navigate('/start-application?purpose=OCI');
         }}
       />
 
@@ -123,7 +123,7 @@ const HomePage: React.FC<{
         <EligibilityChecker
           onSelectRoute={(route, nationality, purpose) => {
             navigate(
-              `/apply?nationality=${nationality}&purpose=${purpose}&category=${encodeURIComponent(
+              `/start-application?nationality=${nationality}&purpose=${purpose}&category=${encodeURIComponent(
                 route.title
               )}`
             );
@@ -286,7 +286,8 @@ export const App: React.FC = () => {
           />
           <Route path="/visa-categories" element={<VisaCategoriesPage />} />
           <Route path="/visa-categories/:slug" element={<CategoryDetailPage />} />
-          <Route path="/apply" element={<ApplyPage />} />
+          <Route path="/start-application" element={<StartApplicationPage />} />
+          <Route path="/apply" element={<Navigate to="/start-application" replace />} />
           <Route path="/requirements" element={<RequirementsPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/existing-applications" element={<ExistingApplicationsPage />} />

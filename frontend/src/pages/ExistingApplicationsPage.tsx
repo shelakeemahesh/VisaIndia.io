@@ -408,7 +408,7 @@ export const ExistingApplicationsPage: React.FC = () => {
                 Select one of the demo presets above or enter your Reference ID to inspect status, timeline, and ETA passes.
               </p>
               <Link
-                to="/apply"
+                to="/start-application"
                 className="inline-block px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-colors cursor-pointer"
               >
                 Start New 3-in-1 Application →

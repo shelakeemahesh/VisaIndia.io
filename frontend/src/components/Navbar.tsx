@@ -188,15 +188,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
 
-              {/* Quick Action: Apply Now */}
-              <Link
-                to="/apply"
-                className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md shadow-teal-700/20 transition-all"
-              >
-                <span>Apply Now</span>
-                <span className="ml-1 text-[10px]">&gt;</span>
-              </Link>
-
               {/* Quick Action: E-VISA > */}
               <Link
                 to="/visa-categories"
@@ -299,20 +290,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
                 <Link
-                  to="/apply"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md"
-                >
-                  <span>Start New Application</span>
-                  <span>&gt;</span>
-                </Link>
-
-                <Link
                   to="/visa-categories"
                   onClick={() => setMobileDrawerOpen(false)}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800"
                 >
-                  <span>Explore e-Visa Categories</span>
+                  <span>Apply for e-Visa</span>
                   <span>&gt;</span>
                 </Link>
 
