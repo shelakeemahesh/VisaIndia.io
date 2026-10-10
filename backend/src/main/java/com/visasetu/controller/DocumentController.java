@@ -1,6 +1,7 @@
 package com.visasetu.controller;
 
 import com.visasetu.domain.entity.Trip;
+import com.visasetu.security.SecurityUtils;
 import com.visasetu.service.DocumentGenerationService;
 import com.visasetu.service.TripService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/documents")
 @RequiredArgsConstructor
@@ -24,31 +29,53 @@ public class DocumentController {
     private final DocumentGenerationService documentGenerationService;
 
     @GetMapping("/{referenceId}/eta-pdf")
-    public ResponseEntity<byte[]> downloadEtaPdf(@PathVariable String referenceId) {
+    public ResponseEntity<?> downloadEtaPdf(@PathVariable String referenceId) {
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
                 .orElse(null);
 
         if (trip == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+
+        // Ownership and authorization check
+        if (trip.getUserId() != null) {
+            if (currentUserId.isEmpty() || (!trip.getUserId().equals(currentUserId.get()) && !SecurityUtils.hasRole("ADMIN"))) {
+                log.warn("Unauthorized document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
+            }
         }
 
         byte[] pdfBytes = documentGenerationService.generateEtaPdf(trip);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("inline", "ETA-" + trip.getReferenceId() + ".pdf");
+        headers.setContentDispositionFormData("attachment", "ETA-" + trip.getReferenceId() + ".pdf");
         headers.setContentLength(pdfBytes.length);
+        headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        headers.set("Pragma", "no-cache");
+        headers.set("Expires", "0");
+        headers.set("X-Content-Type-Options", "nosniff");
 
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 
     @GetMapping("/{referenceId}/qr-pass")
-    public ResponseEntity<byte[]> downloadQrPass(@PathVariable String referenceId) {
+    public ResponseEntity<?> downloadQrPass(@PathVariable String referenceId) {
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
                 .orElse(null);
 
         if (trip == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+
+        // Ownership and authorization check
+        if (trip.getUserId() != null) {
+            if (currentUserId.isEmpty() || (!trip.getUserId().equals(currentUserId.get()) && !SecurityUtils.hasRole("ADMIN"))) {
+                log.warn("Unauthorized QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
+            }
         }
 
         String qrContent = trip.getQrToken() != null
@@ -60,6 +87,8 @@ public class DocumentController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.IMAGE_PNG);
         headers.setContentLength(qrBytes.length);
+        headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        headers.set("X-Content-Type-Options", "nosniff");
 
         return new ResponseEntity<>(qrBytes, headers, HttpStatus.OK);
     }

@@ -75,6 +75,13 @@ const getHeaders = () => {
   return headers;
 };
 
+export interface SignupResult {
+  status: string;
+  message: string;
+  email: string;
+  requiresOtp?: boolean;
+}
+
 export async function apiSignup(data: {
   email: string;
   fullName: string;
@@ -82,7 +89,7 @@ export async function apiSignup(data: {
   nationality?: string;
   passportNumber?: string;
   phoneNumber?: string;
-}): Promise<AuthResponse> {
+}): Promise<SignupResult> {
   const res = await fetch('/api/v1/auth/signup', {
     method: 'POST',
     headers: getHeaders(),
@@ -91,6 +98,22 @@ export async function apiSignup(data: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Registration failed.' }));
     throw new Error(err.error || 'Registration failed.');
+  }
+  return res.json();
+}
+
+export async function apiVerifySignupOtp(data: {
+  email: string;
+  otp: string;
+}): Promise<AuthResponse> {
+  const res = await fetch('/api/v1/auth/verify-signup-otp', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Invalid verification code.' }));
+    throw new Error(err.error || 'Invalid verification code.');
   }
   const result: AuthResponse = await res.json();
   if (result.accessToken) {

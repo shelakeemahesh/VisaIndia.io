@@ -22,7 +22,7 @@ public class AuthOtp {
     @Column(nullable = false)
     private String email;
 
-    @Column(name = "otp_code", nullable = false, length = 10)
+    @Column(name = "otp_code", nullable = false, length = 64)
     private String otpCode;
 
     @Column(nullable = false, length = 50)
@@ -35,6 +35,10 @@ public class AuthOtp {
     @Column(nullable = false)
     @Builder.Default
     private Boolean used = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer attempts = 0;
 
     @Column(name = "created_at", nullable = false)
     @Builder.Default

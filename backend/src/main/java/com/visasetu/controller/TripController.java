@@ -3,18 +3,26 @@ package com.visasetu.controller;
 import com.visasetu.domain.entity.Trip;
 import com.visasetu.domain.entity.TripDraft;
 import com.visasetu.domain.entity.TripModule;
+import com.visasetu.security.SecurityUtils;
+import com.visasetu.service.EncryptionService;
 import com.visasetu.service.TripDraftService;
 import com.visasetu.service.TripService;
 import jakarta.persistence.OptimisticLockException;
+import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -25,12 +33,13 @@ public class TripController {
 
     private final TripDraftService tripDraftService;
     private final TripService tripService;
+    private final EncryptionService encryptionService;
 
     @Data
     public static class CreateDraftRequest {
         private String email;
-        private String nationality = "USA";
-        private String categoryName = "e-Tourist Visa (30 Days)";
+        private String nationality;
+        private String categoryName;
     }
 
     @Data
@@ -49,14 +58,60 @@ public class TripController {
         private String port;
     }
 
+    @Data
+    @Builder
+    public static class TripResponseDto {
+        private UUID id;
+        private String referenceId;
+        private String applicantName;
+        private String maskedEmail;
+        private String maskedPassport;
+        private String nationality;
+        private String categoryName;
+        private String status;
+        private BigDecimal totalAmount;
+        private String currency;
+        private LocalDate arrivalDate;
+        private String portOfArrival;
+        private String etaNumber;
+        private String qrToken;
+        private Instant createdAt;
+        private Instant submittedAt;
+        private List<TripModule> modules;
+    }
+
+    private TripResponseDto toDto(Trip trip, List<TripModule> modules) {
+        String plainPassport = (trip.getPassportNumberEncrypted() != null)
+                ? encryptionService.decrypt(trip.getPassportNumberEncrypted())
+                : null;
+
+        return TripResponseDto.builder()
+                .id(trip.getId())
+                .referenceId(trip.getReferenceId())
+                .applicantName(trip.getApplicantName())
+                .maskedEmail(maskEmail(trip.getApplicantEmail()))
+                .maskedPassport(EncryptionService.maskSensitive(plainPassport))
+                .nationality(trip.getNationality())
+                .categoryName(trip.getCategoryName())
+                .status(trip.getStatus())
+                .totalAmount(trip.getTotalAmount())
+                .currency(trip.getCurrency())
+                .arrivalDate(trip.getArrivalDate())
+                .portOfArrival(trip.getPortOfArrival())
+                .etaNumber(trip.getEtaNumber())
+                .qrToken(trip.getQrToken())
+                .createdAt(trip.getCreatedAt())
+                .submittedAt(trip.getSubmittedAt())
+                .modules(modules)
+                .build();
+    }
+
     @PostMapping("/drafts")
-    public ResponseEntity<?> createOrGetDraft(
-            @RequestBody CreateDraftRequest request,
-            java.security.Principal principal
-    ) {
+    public ResponseEntity<?> createOrGetDraft(@RequestBody CreateDraftRequest request) {
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         String email = request.getEmail();
-        if ((email == null || email.isBlank()) && principal != null) {
-            email = principal.getName();
+        if ((email == null || email.isBlank()) && SecurityUtils.getCurrentUserEmail().isPresent()) {
+            email = SecurityUtils.getCurrentUserEmail().get();
         }
 
         if (email == null || email.isBlank()) {
@@ -64,6 +119,7 @@ public class TripController {
         }
 
         TripDraft draft = tripDraftService.createOrGetDraft(
+                currentUserId.orElse(null),
                 email,
                 request.getNationality(),
                 request.getCategoryName()
@@ -78,19 +134,25 @@ public class TripController {
             @RequestBody AutosaveDraftRequest request
     ) {
         try {
+            Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
             TripDraft saved = tripDraftService.autosaveDraft(
                     draftId,
+                    currentUserId.orElse(null),
                     request.getVersion(),
                     request.getSharedProfileJson(),
                     request.getModulesJson(),
                     request.getStep()
             );
             return ResponseEntity.ok(saved);
+        } catch (AccessDeniedException ade) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ade.getMessage()));
         } catch (OptimisticLockException ole) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                     "error", ole.getMessage(),
                     "code", "OPTIMISTIC_LOCK_CONFLICT"
             ));
+        } catch (IllegalStateException ise) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ise.getMessage()));
         } catch (IllegalArgumentException iae) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", iae.getMessage()));
         }
@@ -98,9 +160,14 @@ public class TripController {
 
     @GetMapping("/drafts/{draftId}")
     public ResponseEntity<?> getDraft(@PathVariable UUID draftId) {
-        return tripDraftService.getDraft(draftId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+            return tripDraftService.getDraft(draftId, currentUserId.orElse(null))
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (AccessDeniedException ade) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ade.getMessage()));
+        }
     }
 
     @PostMapping("/drafts/{draftId}/submit")
@@ -109,8 +176,10 @@ public class TripController {
             @RequestBody SubmitDraftRequest request
     ) {
         try {
+            Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
             Trip trip = tripService.submitTripFromDraft(
                     draftId,
+                    currentUserId.orElse(null),
                     request.getVersion(),
                     request.getApplicantName(),
                     request.getArrivalDate(),
@@ -118,34 +187,66 @@ public class TripController {
             );
 
             List<TripModule> modules = tripService.getTripModules(trip.getId());
-
-            return ResponseEntity.ok(Map.of(
-                    "tripId", trip.getId(),
-                    "referenceId", trip.getReferenceId(),
-                    "status", trip.getStatus(),
-                    "amount", trip.getTotalAmount(),
-                    "currency", trip.getCurrency(),
-                    "applicantName", trip.getApplicantName(),
-                    "modules", modules
-            ));
+            return ResponseEntity.ok(toDto(trip, modules));
+        } catch (AccessDeniedException ade) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ade.getMessage()));
         } catch (OptimisticLockException ole) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                     "error", ole.getMessage(),
                     "code", "OPTIMISTIC_LOCK_CONFLICT"
             ));
+        } catch (IllegalStateException ise) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ise.getMessage()));
+        } catch (IllegalArgumentException iae) {
+            return ResponseEntity.badRequest().body(Map.of("error", iae.getMessage()));
         }
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyTrips() {
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication required."));
+        }
+
+        List<Trip> trips = tripService.getUserTrips(currentUserId.get());
+        List<TripResponseDto> dtos = trips.stream()
+                .map(t -> toDto(t, tripService.getTripModules(t.getId())))
+                .toList();
+
+        return ResponseEntity.ok(dtos);
     }
 
     @GetMapping("/{referenceId}")
     public ResponseEntity<?> getTrip(@PathVariable String referenceId) {
-        return tripService.getTripByReference(referenceId)
-                .map(t -> {
-                    List<TripModule> modules = tripService.getTripModules(t.getId());
-                    return ResponseEntity.ok(Map.of(
-                            "trip", t,
-                            "modules", modules
-                    ));
-                })
-                .orElse(ResponseEntity.notFound().build());
+        Optional<Trip> tripOpt = tripService.getTripByReference(referenceId.trim());
+        if (tripOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+
+        Trip trip = tripOpt.get();
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+
+        // Enforce ownership: if trip has an owner, only the owner or an admin can access
+        if (trip.getUserId() != null) {
+            if (currentUserId.isEmpty() || (!trip.getUserId().equals(currentUserId.get()) && !SecurityUtils.hasRole("ADMIN"))) {
+                log.warn("IDOR attempt: User {} attempted to access trip {} owned by {}",
+                        currentUserId.orElse(null), referenceId, trip.getUserId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "You do not have permission to view this application."
+                ));
+            }
+        }
+
+        List<TripModule> modules = tripService.getTripModules(trip.getId());
+        return ResponseEntity.ok(toDto(trip, modules));
+    }
+
+    private static String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return "***";
+        String[] parts = email.split("@");
+        String name = parts[0];
+        if (name.length() <= 2) return name.charAt(0) + "*@" + parts[1];
+        return name.substring(0, 2) + "****" + name.charAt(name.length() - 1) + "@" + parts[1];
     }
 }

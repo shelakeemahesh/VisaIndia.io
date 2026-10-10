@@ -11,4 +11,7 @@ import java.util.UUID;
 public interface TripDraftRepository extends JpaRepository<TripDraft, UUID> {
     Optional<TripDraft> findByReferenceIdIgnoreCase(String referenceId);
     Optional<TripDraft> findByApplicantEmailIgnoreCase(String applicantEmail);
+    Optional<TripDraft> findByApplicantEmailIgnoreCaseAndIsSubmittedFalse(String applicantEmail);
+    Optional<TripDraft> findByUserIdAndIsSubmittedFalse(UUID userId);
+    Optional<TripDraft> findByDraftIdAndUserId(UUID draftId, UUID userId);
 }

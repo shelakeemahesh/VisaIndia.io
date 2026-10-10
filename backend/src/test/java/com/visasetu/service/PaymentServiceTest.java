@@ -1,8 +1,10 @@
 package com.visasetu.service;
 
+import com.visasetu.domain.entity.PaymentEvent;
 import com.visasetu.domain.entity.PaymentOrder;
 import com.visasetu.domain.entity.PaymentOutboxMessage;
 import com.visasetu.domain.entity.Trip;
+import com.visasetu.repository.PaymentEventRepository;
 import com.visasetu.repository.PaymentOrderRepository;
 import com.visasetu.repository.PaymentOutboxRepository;
 import com.visasetu.repository.TripRepository;
@@ -19,7 +21,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +39,9 @@ class PaymentServiceTest {
 
     @Mock
     private PaymentOutboxRepository paymentOutboxRepository;
+
+    @Mock
+    private PaymentEventRepository paymentEventRepository;
 
     @Mock
     private TripRepository tripRepository;
@@ -90,14 +94,14 @@ class PaymentServiceTest {
     @DisplayName("processWebhook rejects invalid signatures")
     void processWebhook_invalidSignature_returnsFalse() {
         String payload = "{\"event\":\"payment.captured\"}";
-        boolean success = paymentService.processWebhook(payload, "invalid_sig", "evt_1", "order_1", "pay_1", "payment.captured");
+        boolean success = paymentService.processWebhook(payload, "invalid_sig", "evt_1");
         assertThat(success).isFalse();
     }
 
     @Test
     @DisplayName("processWebhook advances state machine and saves outbox on valid payment.captured")
     void processWebhook_validSignature_advancesStateMachine() throws Exception {
-        String payload = "{\"event\":\"payment.captured\",\"order_id\":\"order_test_1\"}";
+        String payload = "{\"event\":\"payment.captured\",\"order_id\":\"order_test_1\",\"event_id\":\"evt_9999\"}";
         String signature = calculateSignature(payload);
 
         UUID tripId = UUID.randomUUID();
@@ -107,6 +111,7 @@ class PaymentServiceTest {
                 .orderId("order_test_1")
                 .referenceId("VS-2026-5555")
                 .amount(new BigDecimal("25.00"))
+                .currency("USD")
                 .status("CREATED")
                 .build();
 
@@ -116,16 +121,16 @@ class PaymentServiceTest {
                 .status("PAYMENT_PENDING")
                 .build();
 
+        given(paymentEventRepository.existsById("evt_9999")).willReturn(false);
         given(paymentOrderRepository.findByOrderId("order_test_1")).willReturn(Optional.of(order));
         given(tripRepository.findById(tripId)).willReturn(Optional.of(trip));
 
-        boolean result = paymentService.processWebhook(
-                payload, signature, "evt_9999", "order_test_1", "pay_live_test", "payment.captured"
-        );
+        boolean result = paymentService.processWebhook(payload, signature, "evt_9999");
 
         assertThat(result).isTrue();
         assertThat(order.getStatus()).isEqualTo("PAID");
         assertThat(trip.getStatus()).isEqualTo("UNDER_REVIEW");
         verify(paymentOutboxRepository).save(any(PaymentOutboxMessage.class));
+        verify(paymentEventRepository).save(any(PaymentEvent.class));
     }
 }

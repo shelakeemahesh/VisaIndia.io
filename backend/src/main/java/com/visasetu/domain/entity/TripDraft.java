@@ -22,6 +22,9 @@ public class TripDraft {
     @Column(name = "reference_id", nullable = false, unique = true, length = 50)
     private String referenceId;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "applicant_email", nullable = false, length = 150)
     private String applicantEmail;
 
@@ -29,11 +32,24 @@ public class TripDraft {
     @Builder.Default
     private Integer currentStep = 1;
 
+    @Column(length = 100)
+    private String nationality;
+
+    @Column(name = "category_name", length = 150)
+    private String categoryName;
+
     @Column(name = "shared_profile_json", columnDefinition = "TEXT")
     private String sharedProfileJson;
 
     @Column(name = "modules_json", columnDefinition = "TEXT")
     private String modulesJson;
+
+    @Column(name = "is_submitted", nullable = false)
+    @Builder.Default
+    private Boolean isSubmitted = false;
+
+    @Column(name = "trip_id")
+    private UUID tripId;
 
     @Version
     @Column(nullable = false)

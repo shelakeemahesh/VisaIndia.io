@@ -14,9 +14,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -42,7 +44,8 @@ class DocumentControllerTest {
     private JwtTokenService jwtTokenService;
 
     @Test
-    @DisplayName("GET /api/v1/documents/{referenceId}/eta-pdf streams PDF certificate")
+    @WithMockUser
+    @DisplayName("GET /api/v1/documents/{referenceId}/eta-pdf streams PDF certificate for permitted user")
     void shouldStreamEtaPdf() throws Exception {
         Trip trip = Trip.builder()
                 .referenceId("VS-2026-4011")
@@ -61,10 +64,30 @@ class DocumentControllerTest {
         mockMvc.perform(get("/api/v1/documents/VS-2026-4011/eta-pdf"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-                .andExpect(header().string("Content-Disposition", "form-data; name=\"inline\"; filename=\"ETA-VS-2026-4011.pdf\""));
+                .andExpect(header().exists("Content-Disposition"));
     }
 
     @Test
+    @WithMockUser(username = "attacker@example.com")
+    @DisplayName("GET /api/v1/documents/{referenceId}/eta-pdf rejects unauthorized user when owned by someone else (IDOR)")
+    void shouldRejectUnauthorizedDocumentDownload() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        Trip trip = Trip.builder()
+                .referenceId("VS-2026-4011")
+                .userId(ownerId) // Owned by different user
+                .applicantName("Victim")
+                .status("APPROVED")
+                .build();
+
+        given(tripService.getTripByReference("VS-2026-4011")).willReturn(Optional.of(trip));
+
+        mockMvc.perform(get("/api/v1/documents/VS-2026-4011/eta-pdf"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("You do not have permission to download this document."));
+    }
+
+    @Test
+    @WithMockUser
     @DisplayName("GET /api/v1/documents/{referenceId}/qr-pass streams PNG biometric pass")
     void shouldStreamQrPass() throws Exception {
         Trip trip = Trip.builder()

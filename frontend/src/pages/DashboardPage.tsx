@@ -34,6 +34,8 @@ import {
   resyncPayment,
   getEtaPdfDownloadUrl,
   getQrPassImageUrl,
+  getMyTrips,
+  TripResponseDto,
 } from '../api/trips';
 import {
   trackApplication,
@@ -54,6 +56,63 @@ import {
   apiUpdateSettings,
 } from '../api/auth';
 import { AuthModal } from '../components/AuthModal';
+
+const FLAG_MAP: Record<string, string> = {
+  Japan: '🇯🇵',
+  JPN: '🇯🇵',
+  'United Kingdom': '🇬🇧',
+  GBR: '🇬🇧',
+  UK: '🇬🇧',
+  'United States': '🇺🇸',
+  USA: '🇺🇸',
+  Germany: '🇩🇪',
+  DEU: '🇩🇪',
+  France: '🇫🇷',
+  FRA: '🇫🇷',
+  Australia: '🇦🇺',
+  AUS: '🇦🇺',
+  Canada: '🇨🇦',
+  CAN: '🇨🇦',
+  Singapore: '🇸🇬',
+  SGP: '🇸🇬',
+  India: '🇮🇳',
+  IND: '🇮🇳',
+};
+
+const getCountryFlag = (nationality?: string): string => {
+  if (!nationality) return '🌐';
+  return FLAG_MAP[nationality] || '🌐';
+};
+
+const mapDtoToDashboardTrip = (dto: TripResponseDto): MockDashboardTrip => {
+  const statusUpper = (dto.status || 'SUBMITTED').toUpperCase();
+  const isApproved = statusUpper === 'APPROVED';
+  const isUnderReview = statusUpper === 'UNDER_REVIEW' || statusUpper === 'SUBMITTED';
+
+  return {
+    referenceId: dto.referenceId,
+    applicantName: dto.applicantName || 'Applicant',
+    applicantEmail: dto.applicantEmail || '',
+    nationality: dto.nationality || 'Foreign National',
+    flagEmoji: getCountryFlag(dto.nationality),
+    passportNumber: '••••••••',
+    categoryName: dto.categoryName || 'e-Visa Application',
+    purpose: dto.categoryName?.includes('Business') ? 'Business & Commerce' : dto.categoryName?.includes('Medical') ? 'Medical Treatment' : 'Tourism & Recreation',
+    portOfArrival: dto.portOfArrival || 'International Port of Entry',
+    arrivalDate: dto.arrivalDate || '',
+    status: (dto.status as any) || 'UNDER_REVIEW',
+    amount: dto.totalAmount || 0,
+    currency: dto.currency || 'USD',
+    etaNumber: dto.etaNumber || null,
+    qrToken: dto.qrToken || null,
+    modules: {
+      eVisa: isApproved ? 'APPROVED' : isUnderReview ? 'UNDER_REVIEW' : 'PENDING',
+      eArrival: 'COMPLETED',
+      eSuvidha: 'COMPLETED',
+    },
+    submittedAt: dto.submittedAt ? new Date(dto.submittedAt).toLocaleDateString() : 'Recent',
+  };
+};
 
 interface MockDashboardTrip {
   referenceId: string;
@@ -166,12 +225,58 @@ export const DashboardPage: React.FC = () => {
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
 
   // Applications & Passes State
-  const [selectedTripRef, setSelectedTripRef] = useState<string>(searchParams.get('ref') || 'VS-2026-6134');
-  const [tripsList, setTripsList] = useState<MockDashboardTrip[]>(DEMO_PRESET_TRIPS);
+  const [selectedTripRef, setSelectedTripRef] = useState<string>(searchParams.get('ref') || '');
+  const [tripsList, setTripsList] = useState<MockDashboardTrip[]>([]);
+  const [tripsLoading, setTripsLoading] = useState<boolean>(false);
+  const [tripsError, setTripsError] = useState<string | null>(null);
   const [resyncing, setResyncing] = useState(false);
   const [resyncMessage, setResyncMessage] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch applications for logged-in user or dev fallback
+  const fetchUserTrips = async () => {
+    if (!currentUser) {
+      if (import.meta.env.DEV) {
+        setTripsList(DEMO_PRESET_TRIPS);
+        setSelectedTripRef(DEMO_PRESET_TRIPS[0]?.referenceId || '');
+      } else {
+        setTripsList([]);
+        setSelectedTripRef('');
+      }
+      return;
+    }
+    setTripsLoading(true);
+    setTripsError(null);
+    try {
+      const liveTrips = await getMyTrips();
+      if (liveTrips && liveTrips.length > 0) {
+        const mapped = liveTrips.map(mapDtoToDashboardTrip);
+        setTripsList(mapped);
+        setSelectedTripRef((prev) => {
+          if (mapped.some((t) => t.referenceId === prev)) return prev;
+          return mapped[0].referenceId;
+        });
+      } else {
+        setTripsList([]);
+        setSelectedTripRef('');
+      }
+    } catch (err: any) {
+      setTripsError(err.response?.data?.error || err.message || 'Unable to fetch your applications.');
+      if (import.meta.env.DEV) {
+        setTripsList(DEMO_PRESET_TRIPS);
+        setSelectedTripRef(DEMO_PRESET_TRIPS[0]?.referenceId || '');
+      } else {
+        setTripsList([]);
+      }
+    } finally {
+      setTripsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserTrips();
+  }, [currentUser]);
 
   // Track Application Tab State (Existing Applications lookup)
   const [trackRef, setTrackRef] = useState('');
@@ -283,6 +388,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   const handleTriggerResync = async (refId: string) => {
+    if (!refId || refId === 'VS-NEW') return;
     setResyncing(true);
     setResyncMessage(null);
     try {
@@ -293,25 +399,18 @@ export const DashboardPage: React.FC = () => {
           t.referenceId === refId
             ? {
                 ...t,
-                status: (res.newTripStatus as any) || 'UNDER_REVIEW',
-                modules: { ...t.modules, eVisa: 'UNDER_REVIEW' },
+                status: (res.newTripStatus as any) || t.status,
+                modules: {
+                  ...t.modules,
+                  eVisa: (res.newTripStatus === 'APPROVED' ? 'APPROVED' : res.newTripStatus === 'UNDER_REVIEW' ? 'UNDER_REVIEW' : t.modules.eVisa),
+                },
               }
             : t
         )
       );
-    } catch {
-      setResyncMessage('Re-sync confirmed: Gateway payment state verified.');
-      setTripsList((prev) =>
-        prev.map((t) =>
-          t.referenceId === refId
-            ? {
-                ...t,
-                status: 'UNDER_REVIEW',
-                modules: { ...t.modules, eVisa: 'UNDER_REVIEW' },
-              }
-            : t
-        )
-      );
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message || 'Payment re-sync failed: Gateway record not confirmed.';
+      setResyncMessage(`Re-sync error: ${errorMsg}`);
     } finally {
       setResyncing(false);
     }
@@ -329,7 +428,7 @@ export const DashboardPage: React.FC = () => {
       const data = await trackApplication(trackRef.trim(), trackEmail.trim(), trackOtp ? trackOtp.trim() : undefined);
       if (data.status === 'OTP_REQUIRED') {
         setTrackOtpRequired(true);
-        setTrackOtp('123456');
+        setTrackOtp('');
       } else {
         setTrackResult(data);
         setTrackOtpRequired(false);
@@ -384,7 +483,29 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const currentTrip = tripsList.find((t) => t.referenceId === selectedTripRef) || tripsList[0];
+  const currentTrip: MockDashboardTrip = tripsList.find((t) => t.referenceId === selectedTripRef) || tripsList[0] || {
+    referenceId: 'VS-NEW',
+    applicantName: currentUser?.fullName || 'Traveler',
+    applicantEmail: currentUser?.email || 'traveler@visaindia.io',
+    nationality: currentUser?.nationality || 'Foreign National',
+    flagEmoji: getCountryFlag(currentUser?.nationality),
+    passportNumber: '••••••••',
+    categoryName: 'e-Tourist Visa',
+    purpose: 'Tourism & Recreation',
+    portOfArrival: 'International Port of Entry',
+    arrivalDate: 'Pending Filing',
+    status: 'DRAFT',
+    amount: 0,
+    currency: 'USD',
+    etaNumber: null,
+    qrToken: null,
+    modules: {
+      eVisa: 'PENDING',
+      eArrival: 'PENDING',
+      eSuvidha: 'PENDING',
+    },
+    submittedAt: 'Not submitted',
+  };
 
   const filteredTrips = tripsList.filter((t) => {
     if (!searchQuery.trim()) return true;
@@ -541,26 +662,28 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Persona Switcher Chips (Demo Build Helper) */}
-          <div className="mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-slate-400 text-[11px] font-semibold mr-1">Demo Traveler Switcher:</span>
-            {tripsList.map((t) => (
-              <button
-                key={t.referenceId}
-                type="button"
-                onClick={() => setSelectedTripRef(t.referenceId)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  selectedTripRef === t.referenceId
-                    ? 'bg-white text-slate-900 shadow-md font-bold'
-                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                <span>{t.flagEmoji}</span>
-                <span>{t.applicantName}</span>
-                <span className="text-[10px] font-mono opacity-70">({t.status})</span>
-              </button>
-            ))}
-          </div>
+          {/* Persona Switcher Chips (Dev Build Helper) */}
+          {import.meta.env.DEV && tripsList.length > 0 && (
+            <div className="mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-slate-400 text-[11px] font-semibold mr-1">Demo Traveler Switcher:</span>
+              {tripsList.map((t) => (
+                <button
+                  key={t.referenceId}
+                  type="button"
+                  onClick={() => setSelectedTripRef(t.referenceId)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    selectedTripRef === t.referenceId
+                      ? 'bg-white text-slate-900 shadow-md font-bold'
+                      : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                  }`}
+                >
+                  <span>{t.flagEmoji}</span>
+                  <span>{t.applicantName}</span>
+                  <span className="text-[10px] font-mono opacity-70">({t.status})</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* RE-SYNC ALERT NOTIFICATION */}
@@ -741,6 +864,64 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
 
+            {tripsLoading && (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm">
+                <RefreshCw className="w-8 h-8 text-teal-600 animate-spin mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-700">Loading your applications...</p>
+                <p className="text-xs text-slate-400 mt-1">Connecting to authoritative registry</p>
+              </div>
+            )}
+
+            {tripsError && (
+              <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center space-y-3">
+                <p className="text-sm font-semibold text-red-800">{tripsError}</p>
+                <button
+                  type="button"
+                  onClick={fetchUserTrips}
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors cursor-pointer"
+                >
+                  Retry Loading
+                </button>
+              </div>
+            )}
+
+            {!tripsLoading && !tripsError && filteredTrips.length === 0 && (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="w-16 h-16 bg-teal-50 border border-teal-200 rounded-2xl flex items-center justify-center text-teal-600 mx-auto">
+                  <FileText className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">No Visa Applications Found</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                    {currentUser
+                      ? "You haven't submitted any visa applications yet. Start a unified 3-in-1 application to travel to India."
+                      : "No active traveler applications in session. Sign in to access your saved applications or start a new filing."}
+                  </p>
+                </div>
+                <div className="pt-2 flex justify-center gap-3">
+                  <Link
+                    to="/start-application"
+                    className="px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Start New Application</span>
+                  </Link>
+                  {!currentUser && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthModalMode('signin');
+                        setAuthModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Sign In
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               {filteredTrips.map((trip) => {
                 const isSelected = selectedTripRef === trip.referenceId;
@@ -898,10 +1079,23 @@ export const DashboardPage: React.FC = () => {
 
         {/* TAB 2: ETA PASSES & QR WALLET */}
         {activeTab === 'passes' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tripsList
-              .filter((t) => t.status === 'APPROVED')
-              .map((trip) => (
+          <div className="space-y-6">
+            {tripsList.filter((t) => t.status === 'APPROVED').length === 0 && (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center text-slate-500 mx-auto">
+                  <QrCode className="w-7 h-7" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-900">No Approved ETA Passes Yet</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Once your e-Visa application is officially granted by immigration authorities, your official ETA PDF and biometric QR entry pass will appear here for 1-click download.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {tripsList
+                .filter((t) => t.status === 'APPROVED')
+                .map((trip) => (
                 <div
                   key={trip.referenceId}
                   className="bg-white rounded-3xl border-2 border-slate-900 shadow-xl overflow-hidden"
@@ -982,6 +1176,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
           </div>
         )}
 
@@ -996,47 +1191,46 @@ export const DashboardPage: React.FC = () => {
                 Enter your 12-character Reference ID and the email address used during filing. No account sign-in required.
               </p>
 
-              {/* Demo quick fill buttons */}
-              <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <span className="text-xs font-bold text-slate-700 block mb-2">
-                  1-Click Test Presets:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTrackRef('VS-2026-4011');
-                      setTrackEmail('sarah.jenkins@example.com');
-                      setTrackOtp('123456');
-                    }}
-                    className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors cursor-pointer"
-                  >
-                    Sarah Jenkins 🇺🇸 (Approved)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTrackRef('VS-2026-5509');
-                      setTrackEmail('akiko.tanaka@example.com');
-                      setTrackOtp('123456');
-                    }}
-                    className="px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
-                  >
-                    Akiko Tanaka 🇯🇵 (Under Review)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTrackRef('VS-2026-6134');
-                      setTrackEmail('david.kim@example.com');
-                      setTrackOtp('123456');
-                    }}
-                    className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
-                  >
-                    David Kim 🇰🇷 (Payment Pending)
-                  </button>
+              {/* Dev test quick fill buttons */}
+              {import.meta.env.DEV && (
+                <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <span className="text-xs font-bold text-slate-700 block mb-2">
+                    Dev Test Presets:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackRef('VS-2026-4011');
+                        setTrackEmail('sarah.jenkins@example.com');
+                      }}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors cursor-pointer"
+                    >
+                      Sarah Jenkins 🇺🇸 (Approved)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackRef('VS-2026-5509');
+                        setTrackEmail('akiko.tanaka@example.com');
+                      }}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
+                      Akiko Tanaka 🇯🇵 (Under Review)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackRef('VS-2026-6134');
+                        setTrackEmail('david.kim@example.com');
+                      }}
+                      className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
+                    >
+                      David Kim 🇰🇷 (Payment Pending)
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {trackError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs">
@@ -1076,13 +1270,15 @@ export const DashboardPage: React.FC = () => {
                 {trackOtpRequired && (
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Email Security Code (Pre-filled for test: 123456)
+                      Email Verification Code (Dispatched to your email)
                     </label>
                     <input
                       type="text"
                       required
+                      maxLength={6}
                       value={trackOtp}
                       onChange={(e) => setTrackOtp(e.target.value)}
+                      placeholder="Enter 6-digit code"
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:bg-white"
                     />
                   </div>

@@ -1,26 +1,36 @@
 package com.visasetu.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Value("${visasetu.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://localhost:8080}")
+    private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -29,21 +39,39 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // 1. Explicit Public Endpoints Allowlist
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/eligibility/**",
                                 "/api/v1/content/**",
-                                "/api/v1/applications/**",
+                                "/api/v1/categories/**",
+                                "/api/v1/requirements/**",
+                                "/api/v1/notices/**",
+                                "/api/v1/faqs/**",
                                 "/api/v1/help/**",
-                                "/api/v1/documents/**",
-                                "/api/v1/payments/webhook",
-                                "/api/v1/payments/*/events",
                                 "/api/v1/mcp/**",
                                 "/llms.txt",
-                                "/actuator/**",
+                                "/actuator/health",
                                 "/error"
                         ).permitAll()
-                        .anyRequest().permitAll()
+
+                        // 2. Public Razorpay Webhook (verifies HMAC signature internally)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
+
+                        // 3. Admin Ingestion & Management
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                        // 4. Protected Endpoints (Applications, Trips, Payments, Documents, Users, Settings)
+                        .requestMatchers(
+                                "/api/v1/trips/**",
+                                "/api/v1/payments/**",
+                                "/api/v1/documents/**",
+                                "/api/v1/users/**",
+                                "/api/v1/applications/**"
+                        ).authenticated()
+
+                        // 5. Catch-all: Deny all unauthenticated requests
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -53,9 +81,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+
+        config.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-ID", "X-Razorpay-Signature", "X-Razorpay-Event-Id"));
         config.setExposedHeaders(List.of("X-Correlation-ID", "Authorization"));
         config.setAllowCredentials(true);
 
@@ -65,7 +98,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public org.springframework.security.crypto.password.PasswordEncoder passwordEncoder() {
-        return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

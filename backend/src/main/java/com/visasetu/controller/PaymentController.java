@@ -1,7 +1,10 @@
 package com.visasetu.controller;
 
+import com.visasetu.domain.entity.Trip;
+import com.visasetu.security.SecurityUtils;
 import com.visasetu.service.PaymentService;
 import com.visasetu.service.PaymentSseService;
+import com.visasetu.service.TripService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -21,6 +27,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PaymentSseService paymentSseService;
+    private final TripService tripService;
 
     @Data
     public static class CreateOrderDto {
@@ -44,6 +51,22 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(Map.of("error", "Application Reference ID is required."));
         }
 
+        // Authorization and ownership check
+        Optional<Trip> tripOpt = tripService.getTripByReference(request.getReferenceId().trim());
+        if (tripOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+        Trip trip = tripOpt.get();
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+        if (trip.getUserId() != null) {
+            boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
+            if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("IDOR attempt: User {} attempted to create payment order for trip {} owned by {}",
+                        currentUserId.orElse(null), request.getReferenceId(), trip.getUserId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to initiate payment for this application."));
+            }
+        }
+
         try {
             Map<String, Object> order = paymentService.createPaymentOrder(request.getReferenceId(), idempotencyKey);
             return ResponseEntity.ok(order);
@@ -52,43 +75,21 @@ public class PaymentController {
         }
     }
 
-    @PostMapping("/webhook")
+    @PostMapping(value = "/webhook", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> handleWebhook(
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
             @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventId,
-            @RequestBody Map<String, Object> payload
+            @RequestBody byte[] rawPayloadBytes
     ) {
-        log.info("Received Razorpay webhook. Event-ID: {}", eventId);
-
-        String eventType = (String) payload.getOrDefault("event", "payment.captured");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> eventPayload = (Map<String, Object>) payload.get("payload");
-
-        String orderId = null;
-        String paymentId = null;
-
-        if (eventPayload != null) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> paymentObj = (Map<String, Object>) eventPayload.get("payment");
-            if (paymentObj != null) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> entity = (Map<String, Object>) paymentObj.get("entity");
-                if (entity != null) {
-                    orderId = (String) entity.get("order_id");
-                    paymentId = (String) entity.get("id");
-                }
-            }
+        if (signature == null || signature.isBlank()) {
+            log.warn("Webhook rejected: Missing X-Razorpay-Signature header.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("status", "REJECTED", "error", "Missing signature header."));
         }
 
-        if (orderId == null) {
-            orderId = (String) payload.get("order_id");
-        }
+        String rawPayload = new String(rawPayloadBytes, StandardCharsets.UTF_8);
+        log.info("Received Razorpay webhook. Event-ID header: {}, payload length: {}", eventId, rawPayload.length());
 
-        String rawJson = payload.toString();
-        // Fallback demo signature allowance if webhook is called in simulated test mode
-        String effectiveSig = signature != null ? signature : "test_sig";
-
-        boolean processed = paymentService.processWebhook(rawJson, effectiveSig, eventId, orderId, paymentId, eventType);
+        boolean processed = paymentService.processWebhook(rawPayload, signature.trim(), eventId);
         if (!processed) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("status", "REJECTED"));
         }
@@ -102,8 +103,22 @@ public class PaymentController {
             return ResponseEntity.badRequest().body(Map.of("error", "Reference ID is required."));
         }
 
+        // Ownership check
+        Optional<Trip> tripOpt = tripService.getTripByReference(request.getReferenceId().trim());
+        if (tripOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+        Trip trip = tripOpt.get();
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+        if (trip.getUserId() != null) {
+            boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
+            if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
+            }
+        }
+
         try {
-            Map<String, Object> result = paymentService.forceReconciliation(request.getReferenceId());
+            Map<String, Object> result = paymentService.reconcilePayment(request.getReferenceId());
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
