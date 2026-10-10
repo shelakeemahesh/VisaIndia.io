@@ -1,7 +1,9 @@
 package com.visasetu.controller;
 
 import com.visasetu.config.CorrelationIdFilter;
+import com.visasetu.config.JwtAuthenticationFilter;
 import com.visasetu.config.SecurityConfig;
+import com.visasetu.service.JwtTokenService;
 import com.visasetu.domain.entity.EntryPoint;
 import com.visasetu.domain.entity.Notice;
 import com.visasetu.domain.entity.VisaCategoryDetail;
@@ -27,7 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ContentController.class)
-@Import({SecurityConfig.class, CorrelationIdFilter.class})
+@Import({SecurityConfig.class, CorrelationIdFilter.class, JwtAuthenticationFilter.class, JwtTokenService.class})
 class ContentControllerTest {
 
     @Autowired

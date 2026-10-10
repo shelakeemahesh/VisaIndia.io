@@ -1,7 +1,9 @@
 package com.visasetu.controller;
 
 import com.visasetu.config.CorrelationIdFilter;
+import com.visasetu.config.JwtAuthenticationFilter;
 import com.visasetu.config.SecurityConfig;
+import com.visasetu.service.JwtTokenService;
 import com.visasetu.domain.entity.DemoApplication;
 import com.visasetu.repository.DemoApplicationRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ApplicationTrackingController.class)
-@Import({SecurityConfig.class, CorrelationIdFilter.class})
+@Import({SecurityConfig.class, CorrelationIdFilter.class, JwtAuthenticationFilter.class, JwtTokenService.class})
 class ApplicationTrackingControllerTest {
 
     @Autowired

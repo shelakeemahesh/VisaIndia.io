@@ -1,7 +1,9 @@
 package com.visasetu.controller;
 
 import com.visasetu.config.CorrelationIdFilter;
+import com.visasetu.config.JwtAuthenticationFilter;
 import com.visasetu.config.SecurityConfig;
+import com.visasetu.service.JwtTokenService;
 import com.visasetu.domain.enums.RouteType;
 import com.visasetu.domain.enums.VisaPurpose;
 import com.visasetu.dto.EligibilityResponse;
@@ -29,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(EligibilityController.class)
-@Import({SecurityConfig.class, CorrelationIdFilter.class})
+@Import({SecurityConfig.class, CorrelationIdFilter.class, JwtAuthenticationFilter.class, JwtTokenService.class})
 class EligibilityControllerTest {
 
     @Autowired
