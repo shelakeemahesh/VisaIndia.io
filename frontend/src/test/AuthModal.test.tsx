@@ -38,7 +38,7 @@ describe('AuthModal Component', () => {
     const otpToggle = screen.getByRole('button', { name: /Email OTP Code/i });
     fireEvent.click(otpToggle);
 
-    expect(screen.getByPlaceholderText(/526584/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter 6-digit code/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Send Code/i })).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe('AuthModal Component', () => {
       target: { value: 'kenji.sato@tokyo-travel.jp' },
     });
     fireEvent.change(screen.getByPlaceholderText(/Enter account password/i), {
-      target: { value: 'Welcome@123' },
+      target: { value: 'ValidPass123' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Sign In to Dashboard/i }));
@@ -80,7 +80,7 @@ describe('AuthModal Component', () => {
     await waitFor(() => {
       expect(authApi.apiLogin).toHaveBeenCalledWith({
         email: 'kenji.sato@tokyo-travel.jp',
-        password: 'Welcome@123',
+        password: 'ValidPass123',
       });
       expect(handleSuccess).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'kenji.sato@tokyo-travel.jp' })
@@ -103,5 +103,72 @@ describe('AuthModal Component', () => {
     expect(screen.getByPlaceholderText(/Kenji Sato/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/traveler@domain.com/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Register Traveler Account/i })).toBeInTheDocument();
+  });
+
+  it('handles signup requiring email verification and verifies otp', async () => {
+    const handleSuccess = vi.fn();
+    const handleClose = vi.fn();
+
+    vi.mocked(authApi.apiSignup).mockResolvedValue({
+      status: 'VERIFICATION_REQUIRED',
+      message: 'Verification code sent to your email address.',
+      email: 'traveler@domain.com',
+      requiresOtp: true,
+    });
+
+    vi.mocked(authApi.apiVerifySignupOtp).mockResolvedValue({
+      status: 'SUCCESS',
+      accessToken: 'test-signup-token',
+      tokenType: 'Bearer',
+      expiresIn: 86400,
+      user: {
+        id: 'user-2',
+        email: 'traveler@domain.com',
+        fullName: 'New Traveler',
+        role: 'ROLE_TRAVELER',
+      },
+    });
+
+    render(
+      <AuthModal
+        isOpen={true}
+        onClose={handleClose}
+        onSuccess={handleSuccess}
+        initialMode="signup"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Kenji Sato/i), {
+      target: { value: 'New Traveler' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/traveler@domain.com/i), {
+      target: { value: 'traveler@domain.com' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Minimum 6 characters/i), {
+      target: { value: 'SecurePass123' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Register Traveler Account/i }));
+
+    await waitFor(() => {
+      expect(authApi.apiSignup).toHaveBeenCalled();
+      expect(screen.getByText(/Verify & Complete Registration/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit code/i), {
+      target: { value: '654321' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Complete Registration/i }));
+
+    await waitFor(() => {
+      expect(authApi.apiVerifySignupOtp).toHaveBeenCalledWith({
+        email: 'traveler@domain.com',
+        otp: '654321',
+      });
+      expect(handleSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'traveler@domain.com' })
+      );
+      expect(handleClose).toHaveBeenCalled();
+    });
   });
 });

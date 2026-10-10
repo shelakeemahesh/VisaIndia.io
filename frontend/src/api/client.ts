@@ -11,5 +11,9 @@ apiClient.interceptors.request.use((config) => {
   if (!config.headers['X-Correlation-ID']) {
     config.headers['X-Correlation-ID'] = 'frontend-' + crypto.randomUUID();
   }
+  const token = localStorage.getItem('visasetu_auth_token');
+  if (token && !config.headers['Authorization']) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
   return config;
 });

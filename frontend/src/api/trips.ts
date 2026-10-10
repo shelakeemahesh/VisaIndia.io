@@ -237,3 +237,31 @@ export function getQrPassImageUrl(referenceId: string): string {
   const base = apiClient.defaults.baseURL || 'http://localhost:8080/api/v1';
   return `${base}/documents/${encodeURIComponent(referenceId)}/qr-pass`;
 }
+
+export interface TripResponseDto {
+  id: string;
+  referenceId: string;
+  applicantEmail: string;
+  applicantName: string;
+  nationality: string;
+  categoryName: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  arrivalDate: string;
+  portOfArrival: string;
+  etaNumber: string | null;
+  qrToken: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string;
+}
+
+/**
+ * Fetch all visa applications owned by the currently authenticated user.
+ */
+export async function getMyTrips(): Promise<TripResponseDto[]> {
+  const res = await apiClient.get<TripResponseDto[]>('/trips/my');
+  return res.data;
+}
