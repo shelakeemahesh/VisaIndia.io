@@ -44,7 +44,7 @@ export const AiAgentModal: React.FC<AiAgentModalProps> = ({ isOpen, onClose }) =
         </div>
 
         <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6">
-          Atithi VisaSetu natively supports autonomous AI booking agents. Your personal agent can check routes, prepare encrypted draft passports, and track clearances directly.
+          VisaSetu (VisaIndia.io) natively supports autonomous AI booking agents. Your personal agent can check routes, prepare encrypted draft passports, and track clearances directly.
         </p>
 
         {/* MCP Connection Box */}

@@ -21,23 +21,6 @@ public class EligibilityService {
 
     private final VisaRuleRepository visaRuleRepository;
 
-    private static final Map<String, CountryInfo> COUNTRY_REGISTRY = Map.ofEntries(
-            Map.entry("JPN", new CountryInfo("Japan", "🇯🇵")),
-            Map.entry("USA", new CountryInfo("United States", "🇺🇸")),
-            Map.entry("GBR", new CountryInfo("United Kingdom", "🇬🇧")),
-            Map.entry("DEU", new CountryInfo("Germany", "🇩🇪")),
-            Map.entry("FRA", new CountryInfo("France", "🇫🇷")),
-            Map.entry("KOR", new CountryInfo("South Korea", "🇰🇷")),
-            Map.entry("ITA", new CountryInfo("Italy", "🇮🇹")),
-            Map.entry("BRA", new CountryInfo("Brazil", "🇧🇷")),
-            Map.entry("NPL", new CountryInfo("Nepal", "🇳🇵")),
-            Map.entry("BTN", new CountryInfo("Bhutan", "🇧🇹")),
-            Map.entry("CAN", new CountryInfo("Canada", "🇨🇦")),
-            Map.entry("AUS", new CountryInfo("Australia", "🇦🇺")),
-            Map.entry("SGP", new CountryInfo("Singapore", "🇸🇬")),
-            Map.entry("ARE", new CountryInfo("United Arab Emirates", "🇦🇪"))
-    );
-
     @Transactional(readOnly = true)
     public EligibilityResponse checkEligibility(String nationality, VisaPurpose purpose, LocalDate arrivalDate) {
         if (nationality == null || nationality.isBlank() || purpose == null) {
@@ -45,22 +28,19 @@ public class EligibilityService {
         }
 
         String normalizedNationality = nationality.trim().toUpperCase();
-        CountryInfo country = COUNTRY_REGISTRY.getOrDefault(
-                normalizedNationality,
-                new CountryInfo(normalizedNationality, "🌐")
-        );
+        CountryRegistry.CountryInfo country = CountryRegistry.get(normalizedNationality);
 
         List<VisaRule> rules = visaRuleRepository.findActiveRules(normalizedNationality, purpose);
 
         if (rules.isEmpty()) {
             return EligibilityResponse.builder()
                     .nationality(normalizedNationality)
-                    .nationalityName(country.name)
+                    .nationalityName(country.name())
                     .purpose(purpose)
                     .arrivalDate(arrivalDate)
                     .routesFound(0)
                     .routes(Collections.emptyList())
-                    .fallbackMessage("No direct online or VoA route found for nationality " + country.name +
+                    .fallbackMessage("No direct online or VoA route found for nationality " + country.name() +
                             " and purpose " + purpose.getDisplayName() +
                             ". Please contact the nearest Indian Embassy or Consulate.")
                     .generalDisclaimer("Sample data — verify with official source.")
@@ -73,7 +53,7 @@ public class EligibilityService {
 
         return EligibilityResponse.builder()
                 .nationality(normalizedNationality)
-                .nationalityName(country.name)
+                .nationalityName(country.name())
                 .purpose(purpose)
                 .arrivalDate(arrivalDate)
                 .routesFound(routeDtos.size())
@@ -88,15 +68,15 @@ public class EligibilityService {
         List<String> dbCodes = visaRuleRepository.findDistinctNationalities();
         Set<String> allCodes = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         allCodes.addAll(dbCodes);
-        allCodes.addAll(COUNTRY_REGISTRY.keySet());
+        allCodes.addAll(CountryRegistry.getAll().keySet());
 
         List<NationalityOptionDto> options = new ArrayList<>();
         for (String code : allCodes) {
-            CountryInfo info = COUNTRY_REGISTRY.getOrDefault(code.toUpperCase(), new CountryInfo(code.toUpperCase(), "🌐"));
+            CountryRegistry.CountryInfo info = CountryRegistry.get(code);
             options.add(NationalityOptionDto.builder()
                     .code(code.toUpperCase())
-                    .name(info.name)
-                    .flagEmoji(info.flagEmoji)
+                    .name(info.name())
+                    .flagEmoji(info.flagEmoji())
                     .build());
         }
 
@@ -146,6 +126,4 @@ public class EligibilityService {
                 .dataDisclaimer("Sample data — verify with official source")
                 .build();
     }
-
-    private record CountryInfo(String name, String flagEmoji) {}
 }

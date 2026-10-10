@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "brand": "VisaSetu",
+    "website": "VisaIndia.io",
+    "tagline": "Passerelle de Voyage Unifiée",
+    "visaCategories": "Catégories de visa",
+    "requirements": "Conditions requises",
+    "howItWorks": "Comment ça marche",
+    "existingApplications": "Demandes existantes",
+    "dashboard": "Tableau de Bord",
+    "notices": "Avis officiels",
+    "help": "Centre d'aide",
+    "connectAiAgent": "Connecter agent IA",
+    "startApplication": "Commencer la demande",
+    "eligibility": "Vérifier l'éligibilité",
+    "apply": "Nouvelle demande",
+    "track": "Suivre l'état",
+    "conceptDisclaimer": "Démo conceptuelle"
+  },
+  "hero": {
+    "badge": "Simplifié · Multilingue · Rapide",
+    "title": "Une Seule Demande. Toutes les Voies de Visa.",
+    "subtitle": "Découvrez toutes les options ouvertes à votre nationalité, comparez délais et frais, et effectuez votre e-Visa, Carte d'Arrivée et Déclaration Santé en un parcours unique.",
+    "ctaCheck": "Vérifier mon éligibilité",
+    "ctaApply": "Commencer ma demande"
+  },
+  "dashboard": {
+    "title": "Portail Voyageur et Tableau de Bord",
+    "subtitle": "Consultez le statut officiel de votre e-Visa, téléchargez votre certificat ETA et vos laissez-passer QR.",
+    "myApplications": "Mes Demandes",
+    "passesWallet": "Pass ETA & Portefeuille QR",
+    "savedDrafts": "Brouillons Enregistrés",
+    "advisories": "Avis de l'Immigration",
+    "newApplication": "Nouvelle Demande",
+    "syncPayment": "Resynchroniser le Paiement"
+  },
+  "eligibility": {
+    "heading": "Recherche Intelligente de Visa",
+    "subheading": "Sélectionnez votre nationalité et motif de voyage pour afficher toutes les options officielles disponibles.",
+    "nationalityLabel": "Nationalité du Passeport",
+    "nationalityPlaceholder": "Rechercher par pays ou code...",
+    "purposeLabel": "Motif du Séjour",
+    "arrivalDateLabel": "Date d'arrivée prévue (Optionnel)",
+    "checkButton": "Trouver les visas",
+    "searching": "Vérification des voies...",
+    "resultsHeading": "Options de visa disponibles pour",
+    "routesFound": "{{count}} options disponibles",
+    "recommended": "Recommandé",
+    "fee": "Frais Officiels",
+    "processingTime": "Délai de traitement",
+    "validity": "Validité",
+    "maxStay": "Séjour Maximum",
+    "entries": "Entrées",
+    "allowedPorts": "Points d'entrée autorisés",
+    "documents": "Documents Requis",
+    "applyBy": "Délai recommandé pour postuler",
+    "officialSource": "Source Gouvernementale Officielle",
+    "lastVerified": "Dernière vérification",
+    "startApplication": "Demander via cette option",
+    "fallbackTitle": "Démarche consulaire requise",
+    "fallbackContact": "Contactez l'ambassade la plus proche",
+    "sampleDisclaimer": "Données d'exemple — à vérifier auprès de la source officielle."
+  },
+  "footer": {
+    "disclaimer": "Projet de démonstration — non affilié au gouvernement de l'Inde.",
+    "purpose": "Plateforme démontrant les processus unifiés, la résilience hors-ligne et l'accessibilité multilingue.",
+    "privacy": "Politique de Confidentialité",
+    "terms": "Conditions d'Utilisation",
+    "security": "Architecture de Sécurité"
+  }
+}

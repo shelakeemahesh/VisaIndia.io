@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   fontSize,
   onToggleFontSize,
 }) => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
 
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -75,20 +75,38 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const currentLang = supportedLanguagesList.find((l) => l.code === i18n.language.split('-')[0]) || supportedLanguagesList[0];
+  const [currentLangCode, setCurrentLangCode] = useState(
+    i18n.language ? i18n.language.split('-')[0] : 'en'
+  );
+
+  useEffect(() => {
+    const handleLanguageChanged = (lng: string) => {
+      setCurrentLangCode(lng.split('-')[0]);
+    };
+    i18n.on('languageChanged', handleLanguageChanged);
+    return () => {
+      i18n.off('languageChanged', handleLanguageChanged);
+    };
+  }, [i18n]);
+
+  const currentLang =
+    supportedLanguagesList.find((l) => l.code === currentLangCode) ||
+    supportedLanguagesList[0];
 
   const handleSelectLang = (code: string) => {
     i18n.changeLanguage(code);
+    setCurrentLangCode(code);
     setLangDropdownOpen(false);
   };
 
   const navLinks = [
-    { label: 'Visa categories', to: '/visa-categories' },
-    { label: 'Requirements', to: '/requirements' },
-    { label: 'How it works', to: '/how-it-works' },
-    { label: 'Existing applications', to: '/existing-applications' },
-    { label: 'Notices', to: '/notices' },
-    { label: 'Help', to: '/help' },
+    { label: t('nav.visaCategories', 'Visa categories'), to: '/visa-categories' },
+    { label: t('nav.requirements', 'Requirements'), to: '/requirements' },
+    { label: t('nav.howItWorks', 'How it works'), to: '/how-it-works' },
+    { label: t('nav.dashboard', 'User Dashboard'), to: '/dashboard' },
+    { label: t('nav.existingApplications', 'Existing applications'), to: '/existing-applications' },
+    { label: t('nav.notices', 'Notices'), to: '/notices' },
+    { label: t('nav.help', 'Help'), to: '/help' },
   ];
 
   return (
@@ -190,11 +208,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Quick Action: E-VISA > */}
               <Link
-                to="/visa-categories"
-                className="hidden sm:inline-flex items-center px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all shadow-sm"
+                to="/start-application"
+                className="hidden sm:inline-flex items-center px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition-all shadow-sm"
               >
                 <span>E-VISA</span>
-                <span className="ml-1.5 text-slate-400 text-[10px]">&gt;</span>
+                <span className="ml-1.5 text-teal-200 text-[10px]">&gt;</span>
               </Link>
 
               {/* Quick Action: OCI > */}
@@ -290,11 +308,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
                 <Link
-                  to="/visa-categories"
+                  to="/start-application"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md"
                 >
-                  <span>Apply for e-Visa</span>
+                  <span>Start e-Visa Application</span>
+                  <span>&gt;</span>
+                </Link>
+
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-teal-50 border border-teal-200 text-xs font-bold text-teal-900"
+                >
+                  <span>User Dashboard</span>
                   <span>&gt;</span>
                 </Link>
 

@@ -7,13 +7,13 @@ interface LotusLogoProps {
 export const LotusLogo: React.FC<LotusLogoProps> = ({ className = 'h-9 w-auto' }) => {
   return (
     <div className="flex items-center space-x-2.5 cursor-pointer select-none">
-      {/* Exact Atithi multi-petal stylized lotus mark */}
+      {/* Stylized Indian lotus mark */}
       <svg
         viewBox="0 0 100 85"
         className={className}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="Atithi Lotus Logo"
+        aria-label="VisaSetu - VisaIndia.io Official e-Visa Portal"
       >
         {/* Left outer petal - Soft rose pink */}
         <path
@@ -48,13 +48,13 @@ export const LotusLogo: React.FC<LotusLogoProps> = ({ className = 'h-9 w-auto' }
         <circle cx="59" cy="58" r="2.5" fill="#A855F7" />
       </svg>
 
-      {/* Typography: "Atithi" in elegant serif, with subtitle "E-VISA" */}
+      {/* Typography: "VisaSetu" with website name "VisaIndia.io" */}
       <div className="flex flex-col leading-none">
-        <span className="font-serif text-2xl tracking-tight text-slate-900 font-semibold">
-          Atithi
+        <span className="font-serif text-2xl tracking-tight text-slate-900 font-bold">
+          VisaSetu
         </span>
-        <span className="text-[9px] tracking-[0.25em] text-slate-400 font-bold uppercase mt-0.5">
-          E-VISA
+        <span className="text-[10px] tracking-[0.16em] text-teal-700 font-extrabold uppercase mt-0.5">
+          VisaIndia.io
         </span>
       </div>
     </div>

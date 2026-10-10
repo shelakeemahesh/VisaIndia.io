@@ -16,6 +16,7 @@ import { CategoryDetailPage } from './pages/CategoryDetailPage';
 import { RequirementsPage } from './pages/RequirementsPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { ExistingApplicationsPage } from './pages/ExistingApplicationsPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { NoticesPage } from './pages/NoticesPage';
 import { NoticeDetailPage } from './pages/NoticeDetailPage';
 import { HelpPage } from './pages/HelpPage';
@@ -30,6 +31,7 @@ import {
   RouteDto,
 } from './api/eligibility';
 import { fetchNotices, NoticeDto } from './api/content';
+import { ALL_COUNTRIES } from './data/countries';
 
 // Home Page Component with teasers linking to full pages
 const HomePage: React.FC<{
@@ -207,21 +209,13 @@ export const App: React.FC = () => {
           fetchPurposes(),
           fetchNotices(undefined, true).catch(() => []),
         ]);
-        setNationalities(nats);
+        setNationalities(nats && nats.length > 0 ? nats : ALL_COUNTRIES);
         setPurposes(purps);
         if (nots && nots.length > 0) {
           setPinnedNotice(nots[0]);
         }
       } catch {
-        setNationalities([
-          { code: 'JPN', name: 'Japan', flagEmoji: '🇯🇵' },
-          { code: 'USA', name: 'United States', flagEmoji: '🇺🇸' },
-          { code: 'GBR', name: 'United Kingdom', flagEmoji: '🇬🇧' },
-          { code: 'DEU', name: 'Germany', flagEmoji: '🇩🇪' },
-          { code: 'FRA', name: 'France', flagEmoji: '🇫🇷' },
-          { code: 'KOR', name: 'South Korea', flagEmoji: '🇰🇷' },
-          { code: 'NPL', name: 'Nepal', flagEmoji: '🇳🇵' },
-        ]);
+        setNationalities(ALL_COUNTRIES);
         setPurposes([
           { code: 'TOURISM', displayName: 'Tourism & Recreation' },
           { code: 'BUSINESS', displayName: 'Business & Commerce' },
@@ -290,6 +284,7 @@ export const App: React.FC = () => {
           <Route path="/apply" element={<Navigate to="/start-application" replace />} />
           <Route path="/requirements" element={<RequirementsPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/existing-applications" element={<ExistingApplicationsPage />} />
           <Route path="/notices" element={<NoticesPage />} />
           <Route path="/notices/:id" element={<NoticeDetailPage />} />

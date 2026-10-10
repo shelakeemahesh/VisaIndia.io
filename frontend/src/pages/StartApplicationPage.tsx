@@ -22,6 +22,8 @@ import {
   PaymentOrderDto,
 } from '../api/trips';
 import { fetchNationalities, NationalityOption } from '../api/eligibility';
+import { SearchableCountrySelect } from '../components/SearchableCountrySelect';
+import { ALL_COUNTRIES } from '../data/countries';
 
 const PASSPORT_TYPES = [
   { value: 'ORDINARY', label: 'Ordinary Passport (Standard Tourist / Business)' },
@@ -135,8 +137,8 @@ export const StartApplicationPage: React.FC = () => {
   // Load nationalities on mount
   useEffect(() => {
     fetchNationalities()
-      .then((data) => setNationalities(data))
-      .catch(() => {});
+      .then((data) => setNationalities(data && data.length > 0 ? data : ALL_COUNTRIES))
+      .catch(() => setNationalities(ALL_COUNTRIES));
   }, []);
 
   // Update confirmEmail when email changes initially
@@ -492,18 +494,12 @@ export const StartApplicationPage: React.FC = () => {
                   <label htmlFor="nationality-select" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                     Nationality / Region *
                   </label>
-                  <select
+                  <SearchableCountrySelect
                     id="nationality-select"
                     value={nationality}
-                    onChange={(e) => setNationality(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                  >
-                    {nationalities.map((n) => (
-                      <option key={n.code} value={n.code}>
-                        {n.flagEmoji} {n.name} ({n.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setNationality}
+                    options={nationalities && nationalities.length > 0 ? nationalities : ALL_COUNTRIES}
+                  />
                   <span className="text-[11px] text-slate-400 mt-1 block">
                     Select citizenship matching the passport you will present upon arrival.
                   </span>

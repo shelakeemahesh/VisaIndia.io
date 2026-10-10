@@ -21,6 +21,8 @@ import {
   EligibilityResponse,
   RouteDto,
 } from '../api/eligibility';
+import { SearchableCountrySelect } from './SearchableCountrySelect';
+import { ALL_COUNTRIES } from '../data/countries';
 
 interface EligibilityCheckerProps {
   onSelectRoute?: (route: RouteDto, nationality: string, purpose: string) => void;
@@ -47,19 +49,10 @@ export const EligibilityChecker: React.FC<EligibilityCheckerProps> = ({ onSelect
           fetchNationalities(),
           fetchPurposes(),
         ]);
-        setNationalities(natData);
+        setNationalities(natData && natData.length > 0 ? natData : ALL_COUNTRIES);
         setPurposes(purpData);
-      } catch (err) {
-        // Fallback static list if backend hasn't booted yet
-        setNationalities([
-          { code: 'JPN', name: 'Japan', flagEmoji: '🇯🇵' },
-          { code: 'USA', name: 'United States', flagEmoji: '🇺🇸' },
-          { code: 'GBR', name: 'United Kingdom', flagEmoji: '🇬🇧' },
-          { code: 'DEU', name: 'Germany', flagEmoji: '🇩🇪' },
-          { code: 'FRA', name: 'France', flagEmoji: '🇫🇷' },
-          { code: 'KOR', name: 'South Korea', flagEmoji: '🇰🇷' },
-          { code: 'NPL', name: 'Nepal', flagEmoji: '🇳🇵' },
-        ]);
+      } catch {
+        setNationalities(ALL_COUNTRIES);
         setPurposes([
           { code: 'TOURISM', displayName: 'Tourism & Recreation' },
           { code: 'BUSINESS', displayName: 'Business & Commerce' },
@@ -118,22 +111,13 @@ export const EligibilityChecker: React.FC<EligibilityCheckerProps> = ({ onSelect
               <label htmlFor="nationality-select" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                 {t('eligibility.nationalityLabel')}
               </label>
-              <div className="relative">
-                <select
-                  id="nationality-select"
-                  aria-label={t('eligibility.nationalityLabel')}
-                  value={selectedNationality}
-                  onChange={(e) => setSelectedNationality(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm"
-                >
-                  <option value="">{t('eligibility.nationalityPlaceholder')}</option>
-                  {nationalities.map((nat) => (
-                    <option key={nat.code} value={nat.code}>
-                      {nat.flagEmoji} {nat.name} ({nat.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SearchableCountrySelect
+                id="nationality-select"
+                value={selectedNationality}
+                onChange={setSelectedNationality}
+                options={nationalities && nationalities.length > 0 ? nationalities : ALL_COUNTRIES}
+                placeholder={t('eligibility.nationalityPlaceholder')}
+              />
             </div>
 
             {/* Travel Purpose */}

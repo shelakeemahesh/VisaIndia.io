@@ -1,7 +1,17 @@
 {
   "nav": {
     "brand": "VisaSetu",
+    "website": "VisaIndia.io",
     "tagline": "Unified Travel Gateway",
+    "visaCategories": "Visa categories",
+    "requirements": "Requirements",
+    "howItWorks": "How it works",
+    "existingApplications": "Existing applications",
+    "dashboard": "User Dashboard",
+    "notices": "Notices",
+    "help": "Help",
+    "connectAiAgent": "Connect AI agent",
+    "startApplication": "Start Application",
     "eligibility": "Check Eligibility",
     "apply": "New Application",
     "track": "Track Status",
@@ -12,13 +22,23 @@
     "title": "One Application. Every Visa Route.",
     "subtitle": "Discover open visa routes for your nationality, compare processing times and fees, and complete your e-Visa, Arrival Card, and Health Declaration in a single unified flow.",
     "ctaCheck": "Check Your Route",
-    "ctaApply": "Start Unified Trip"
+    "ctaApply": "Start Application"
+  },
+  "dashboard": {
+    "title": "Traveler Portal & Application Dashboard",
+    "subtitle": "Track your official e-Visa status, download approved ETA certificates & QR passes, and manage travel modules.",
+    "myApplications": "My Applications",
+    "passesWallet": "ETA Passes & QR Wallet",
+    "savedDrafts": "Saved Drafts",
+    "advisories": "Immigration Advisories",
+    "newApplication": "Start New Application",
+    "syncPayment": "Re-sync Gateway Payment"
   },
   "eligibility": {
     "heading": "Smart Visa Route Finder",
     "subheading": "Select your nationality and trip purpose to see every official route available to you.",
     "nationalityLabel": "Passport Nationality",
-    "nationalityPlaceholder": "Select or search nationality...",
+    "nationalityPlaceholder": "Search by country name or code...",
     "purposeLabel": "Purpose of Travel",
     "arrivalDateLabel": "Expected Arrival Date (Optional)",
     "checkButton": "Find Visa Routes",

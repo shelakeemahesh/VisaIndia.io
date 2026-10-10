@@ -22,7 +22,7 @@ export const OciSection: React.FC<OciSectionProps> = ({ onStartOci }) => {
             </h2>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-xl font-normal">
-              OCI cardholders do not apply for an e-Visa. Since 1 October 2025, every OCI cardholder must file the e-Arrival Card before landing. Atithi helps you prepare that, and everything else an OCI card needs, in one place.
+              OCI cardholders do not apply for an e-Visa. Since 1 October 2025, every OCI cardholder must file the e-Arrival Card before landing. VisaSetu (VisaIndia.io) helps you prepare that, and everything else an OCI card needs, in one place.
             </p>
           </div>
 

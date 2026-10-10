@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "brand": "VisaSetu",
+    "website": "VisaIndia.io",
+    "tagline": "Portal de Viaje Unificado",
+    "visaCategories": "Categorías de visado",
+    "requirements": "Requisitos",
+    "howItWorks": "Cómo funciona",
+    "existingApplications": "Solicitudes existentes",
+    "dashboard": "Panel de Usuario",
+    "notices": "Avisos oficiales",
+    "help": "Ayuda",
+    "connectAiAgent": "Conectar agente IA",
+    "startApplication": "Comenzar solicitud",
+    "eligibility": "Verificar elegibilidad",
+    "apply": "Nueva solicitud",
+    "track": "Consultar estado",
+    "conceptDisclaimer": "Demostración conceptual"
+  },
+  "hero": {
+    "badge": "Simplificado · Multilingüe · Rápido",
+    "title": "Una Solicitud. Cada Ruta de Visado.",
+    "subtitle": "Descubra todas las rutas abiertas para su nacionalidad, compare tiempos y tarifas, y complete su e-Visa, Tarjeta de Llegada y Declaración de Salud en un solo flujo.",
+    "ctaCheck": "Verificar Ruta",
+    "ctaApply": "Iniciar Solicitud"
+  },
+  "dashboard": {
+    "title": "Portal del Viajero y Panel de Solicitudes",
+    "subtitle": "Consulte el estado oficial de su e-Visa, descargue certificados ETA y pases QR aprobados.",
+    "myApplications": "Mis Solicitudes",
+    "passesWallet": "Pases ETA y Billetera QR",
+    "savedDrafts": "Borradores Guardados",
+    "advisories": "Avisos de Inmigración",
+    "newApplication": "Nueva Solicitud",
+    "syncPayment": "Resincronizar Pago"
+  },
+  "eligibility": {
+    "heading": "Buscador Inteligente de Visados",
+    "subheading": "Seleccione su nacionalidad y motivo de viaje para ver las rutas oficiales disponibles.",
+    "nationalityLabel": "Nacionalidad del Pasaporte",
+    "nationalityPlaceholder": "Buscar por país o código...",
+    "purposeLabel": "Motivo del Viaje",
+    "arrivalDateLabel": "Fecha Estimada de Llegada (Opcional)",
+    "checkButton": "Buscar Rutas",
+    "searching": "Consultando rutas...",
+    "resultsHeading": "Rutas de Visado Disponibles para",
+    "routesFound": "{{count}} rutas disponibles",
+    "recommended": "Recomendado",
+    "fee": "Tarifa Oficial",
+    "processingTime": "Tiempo de Procesamiento",
+    "validity": "Validez",
+    "maxStay": "Estancia Máxima",
+    "entries": "Entradas",
+    "allowedPorts": "Puertos de Entrada",
+    "documents": "Documentos Requeridos",
+    "applyBy": "Plazo Recomendado de Solicitud",
+    "officialSource": "Fuente Oficial Gubernamental",
+    "lastVerified": "Última Verificación",
+    "startApplication": "Solicitar por esta Ruta",
+    "fallbackTitle": "Trámite Consular Requerido",
+    "fallbackContact": "Contacte con la Embajada más cercana",
+    "sampleDisclaimer": "Datos de muestra — verifique con la fuente oficial."
+  },
+  "footer": {
+    "disclaimer": "Proyecto conceptual — no afiliado al Gobierno de la India.",
+    "purpose": "Plataforma de demostración de flujos unificados, resiliencia sin conexión y acceso multilingüe.",
+    "privacy": "Política de Privacidad",
+    "terms": "Términos de Servicio",
+    "security": "Arquitectura de Seguridad"
+  }
+}

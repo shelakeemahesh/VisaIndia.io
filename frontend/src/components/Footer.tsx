@@ -62,7 +62,7 @@ export const Footer: React.FC = () => {
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 space-y-4 sm:space-y-0">
           <div className="flex items-center space-x-2">
             <Shield className="w-4 h-4 text-emerald-500" />
-            <span>&copy; {new Date().getFullYear()} VisaSetu Engineering. {t('footer.disclaimer')}</span>
+            <span>&copy; {new Date().getFullYear()} VisaIndia.io (VisaSetu Platform). {t('footer.disclaimer')}</span>
           </div>
           <div className="flex space-x-6">
             <a href="#privacy" className="hover:text-slate-300 transition-colors">{t('footer.privacy')}</a>
