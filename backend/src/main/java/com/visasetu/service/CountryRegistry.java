@@ -221,5 +221,19 @@ public final class CountryRegistry {
         return Collections.unmodifiableMap(REGISTRY);
     }
 
+    public static String resolveIso3Code(String input) {
+        if (input == null || input.isBlank()) return "USA";
+        String clean = input.trim();
+        if (REGISTRY.containsKey(clean.toUpperCase())) {
+            return clean.toUpperCase();
+        }
+        for (Map.Entry<String, CountryInfo> entry : REGISTRY.entrySet()) {
+            if (entry.getValue().name().equalsIgnoreCase(clean)) {
+                return entry.getKey();
+            }
+        }
+        return clean.length() == 3 ? clean.toUpperCase() : "USA";
+    }
+
     private CountryRegistry() {}
 }

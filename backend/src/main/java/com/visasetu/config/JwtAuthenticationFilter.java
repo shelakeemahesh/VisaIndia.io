@@ -1,5 +1,6 @@
 package com.visasetu.config;
 
+import com.visasetu.security.UserPrincipal;
 import com.visasetu.service.JwtTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -35,16 +37,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
             if (jwtTokenService.validateToken(token)) {
-                String email = jwtTokenService.extractEmail(token);
-                String role = jwtTokenService.extractRole(token);
+                try {
+                    String email = jwtTokenService.extractEmail(token);
+                    String role = jwtTokenService.extractRole(token);
+                    UUID userId = jwtTokenService.extractUserId(token);
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        email,
-                        null,
-                        List.of(new SimpleGrantedAuthority(role != null ? role : "ROLE_TRAVELER"))
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    UserPrincipal principal = new UserPrincipal(
+                            userId,
+                            email,
+                            List.of(new SimpleGrantedAuthority(role != null ? role : "ROLE_TRAVELER"))
+                    );
+
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            principal,
+                            null,
+                            principal.getAuthorities()
+                    );
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } catch (Exception e) {
+                    log.debug("Failed to set authentication from token: {}", e.getMessage());
+                }
             }
         }
 
