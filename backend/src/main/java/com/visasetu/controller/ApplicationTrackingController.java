@@ -1,7 +1,13 @@
 package com.visasetu.controller;
 
 import com.visasetu.domain.entity.DemoApplication;
+import com.visasetu.domain.entity.Trip;
 import com.visasetu.repository.DemoApplicationRepository;
+import com.visasetu.repository.TripRepository;
+import com.visasetu.service.OtpService;
+import com.visasetu.service.PaymentService;
+import com.visasetu.service.RateLimitingService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +27,11 @@ import java.util.Optional;
 @Slf4j
 public class ApplicationTrackingController {
 
+    private final TripRepository tripRepository;
     private final DemoApplicationRepository demoApplicationRepository;
+    private final OtpService otpService;
+    private final PaymentService paymentService;
+    private final RateLimitingService rateLimitingService;
 
     @Data
     public static class TrackRequest {
@@ -66,61 +76,95 @@ public class ApplicationTrackingController {
     }
 
     @PostMapping("/track")
-    public ResponseEntity<?> trackApplication(@RequestBody TrackRequest request) {
+    public ResponseEntity<?> trackApplication(@RequestBody TrackRequest request, HttpServletRequest httpRequest) {
         if (request.getReferenceId() == null || request.getReferenceId().isBlank() ||
             request.getEmail() == null || request.getEmail().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Reference ID and applicant email are required."));
         }
 
         String ref = request.getReferenceId().trim();
-        String email = request.getEmail().trim();
+        String email = request.getEmail().trim().toLowerCase();
 
-        // Enforce generic response on mismatch to prevent enumeration
-        Optional<DemoApplication> appOpt = demoApplicationRepository.findByReferenceIdIgnoreCaseAndApplicantEmailIgnoreCase(ref, email);
-        if (appOpt.isEmpty()) {
-            // Also check if reference exists alone just for demo ease, or keep generic error
+        String clientIp = httpRequest.getRemoteAddr();
+        if (!rateLimitingService.tryAcquire("track:" + email + ":" + clientIp, 10, 60)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "error", "Too many tracking attempts. Please wait a minute."
+            ));
+        }
+
+        // 1. Look up in real system of record first
+        Optional<Trip> tripOpt = tripRepository.findByReferenceIdIgnoreCase(ref)
+                .filter(t -> t.getApplicantEmail().equalsIgnoreCase(email));
+
+        // 2. Fallback to demo application records if present
+        Optional<DemoApplication> demoOpt = Optional.empty();
+        if (tripOpt.isEmpty()) {
+            demoOpt = demoApplicationRepository.findByReferenceIdIgnoreCaseAndApplicantEmailIgnoreCase(ref, email);
+        }
+
+        if (tripOpt.isEmpty() && demoOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "error", "Application reference or verification details could not be verified. Please check the details and try again."
             ));
         }
 
-        DemoApplication app = appOpt.get();
-
         // If OTP is not provided, send OTP prompt
         if (request.getOtp() == null || request.getOtp().isBlank()) {
+            otpService.generateOtp(email, "TRACKING");
             return ResponseEntity.ok(Map.of(
                     "status", "OTP_REQUIRED",
-                    "message", "A 6-digit security code was dispatched to " + maskEmail(email) + ". For demo verification, enter code: 123456",
+                    "message", "A 6-digit security code was dispatched to " + maskEmail(email) + ".",
                     "referenceId", ref
             ));
         }
 
-        // Demo OTP check (allow "123456" or any 6-digit numeric string for demo review)
-        if (!request.getOtp().matches("\\d{6}")) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid 6-digit verification code."));
+        // Purpose-bound OTP verification
+        boolean validOtp = otpService.verifyOtp(email, request.getOtp().trim(), "TRACKING");
+        if (!validOtp) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "error", "Invalid or expired 6-digit verification code."
+            ));
         }
 
-        List<TimelineStep> timeline = buildTimeline(app);
-
-        TrackResponse response = TrackResponse.builder()
-                .referenceId(app.getReferenceId())
-                .applicantName(app.getApplicantName())
-                .maskedEmail(maskEmail(app.getApplicantEmail()))
-                .nationality(app.getNationality())
-                .categoryName(app.getCategoryName())
-                .status(app.getStatus())
-                .orderId(app.getOrderId())
-                .paymentId(app.getPaymentId())
-                .amount(app.getAmount() != null ? app.getAmount().doubleValue() : null)
-                .arrivalDate(app.getArrivalDate() != null ? app.getArrivalDate().toString() : null)
-                .portOfArrival(app.getPortOfArrival())
-                .qrData(app.getQrData())
-                .createdAt(app.getCreatedAt())
-                .updatedAt(app.getUpdatedAt())
-                .timeline(timeline)
-                .build();
-
-        return ResponseEntity.ok(response);
+        if (tripOpt.isPresent()) {
+            Trip trip = tripOpt.get();
+            List<TimelineStep> timeline = buildTripTimeline(trip);
+            return ResponseEntity.ok(TrackResponse.builder()
+                    .referenceId(trip.getReferenceId())
+                    .applicantName(trip.getApplicantName())
+                    .maskedEmail(maskEmail(trip.getApplicantEmail()))
+                    .nationality(trip.getNationality())
+                    .categoryName(trip.getCategoryName())
+                    .status(trip.getStatus())
+                    .amount(trip.getTotalAmount() != null ? trip.getTotalAmount().doubleValue() : null)
+                    .arrivalDate(trip.getArrivalDate() != null ? trip.getArrivalDate().toString() : null)
+                    .portOfArrival(trip.getPortOfArrival())
+                    .qrData(trip.getQrToken())
+                    .createdAt(trip.getCreatedAt())
+                    .updatedAt(trip.getUpdatedAt())
+                    .timeline(timeline)
+                    .build());
+        } else {
+            DemoApplication app = demoOpt.get();
+            List<TimelineStep> timeline = buildDemoTimeline(app);
+            return ResponseEntity.ok(TrackResponse.builder()
+                    .referenceId(app.getReferenceId())
+                    .applicantName(app.getApplicantName())
+                    .maskedEmail(maskEmail(app.getApplicantEmail()))
+                    .nationality(app.getNationality())
+                    .categoryName(app.getCategoryName())
+                    .status(app.getStatus())
+                    .orderId(app.getOrderId())
+                    .paymentId(app.getPaymentId())
+                    .amount(app.getAmount() != null ? app.getAmount().doubleValue() : null)
+                    .arrivalDate(app.getArrivalDate() != null ? app.getArrivalDate().toString() : null)
+                    .portOfArrival(app.getPortOfArrival())
+                    .qrData(app.getQrData())
+                    .createdAt(app.getCreatedAt())
+                    .updatedAt(app.getUpdatedAt())
+                    .timeline(timeline)
+                    .build());
+        }
     }
 
     @PostMapping("/resync-payment")
@@ -129,39 +173,58 @@ public class ApplicationTrackingController {
             return ResponseEntity.badRequest().body(Map.of("error", "Reference ID is required."));
         }
 
-        Optional<DemoApplication> appOpt = demoApplicationRepository.findByReferenceIdIgnoreCase(request.getReferenceId().trim());
-        if (appOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
-        }
+        String ref = request.getReferenceId().trim();
+        log.info("Triggering authoritative payment reconciliation for application {}", ref);
 
-        DemoApplication app = appOpt.get();
-        log.info("Triggering payment reconciliation for application {}", app.getReferenceId());
-
-        // In test mode: simulate reconciliation against payment gateway
-        if ("PAYMENT_PENDING".equals(app.getStatus()) || "PAYMENT_FAILED".equals(app.getStatus()) || "SUBMITTED".equals(app.getStatus())) {
-            app.setStatus("UNDER_REVIEW");
-            app.setPaymentId("pay_reconciled_" + System.currentTimeMillis());
-            app.setUpdatedAt(Instant.now());
-            demoApplicationRepository.save(app);
-
-            return ResponseEntity.ok(Map.of(
-                    "status", "RECONCILED",
-                    "message", "Payment reconciliation verified capture. Application state advanced to UNDER_REVIEW.",
-                    "referenceId", app.getReferenceId(),
-                    "newStatus", app.getStatus(),
-                    "paymentId", app.getPaymentId()
-            ));
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "status", "ALREADY_SYNCHRONIZED",
-                "message", "Payment state is already synchronized: " + app.getStatus(),
-                "referenceId", app.getReferenceId(),
-                "currentStatus", app.getStatus()
-        ));
+        // Call authoritative payment reconciliation service without fabricating success
+        Map<String, Object> result = paymentService.reconcilePayment(ref);
+        return ResponseEntity.ok(result);
     }
 
-    private List<TimelineStep> buildTimeline(DemoApplication app) {
+    private List<TimelineStep> buildTripTimeline(Trip trip) {
+        String status = trip.getStatus();
+        Instant base = trip.getCreatedAt();
+
+        return List.of(
+                TimelineStep.builder()
+                        .step("DRAFT")
+                        .label("Application Drafted")
+                        .state("COMPLETED")
+                        .description("Profile, passport specs and travel itinerary collected.")
+                        .timestamp(base)
+                        .build(),
+                TimelineStep.builder()
+                        .step("SUBMITTED")
+                        .label("Submitted to System")
+                        .state(isPastOrCurrent(status, "SUBMITTED"))
+                        .description("Application snapshot recorded in system of record.")
+                        .timestamp(trip.getSubmittedAt() != null ? trip.getSubmittedAt() : base)
+                        .build(),
+                TimelineStep.builder()
+                        .step("PAYMENT")
+                        .label("Fee Payment")
+                        .state(getPaymentStepState(status))
+                        .description("Fee transaction verification and settlement.")
+                        .timestamp(base.plusSeconds(300))
+                        .build(),
+                TimelineStep.builder()
+                        .step("UNDER_REVIEW")
+                        .label("Consular Review")
+                        .state(isPastOrCurrent(status, "UNDER_REVIEW"))
+                        .description("Automated security screening & jurisdiction review.")
+                        .timestamp(base.plusSeconds(600))
+                        .build(),
+                TimelineStep.builder()
+                        .step("FINAL_DECISION")
+                        .label("Final Decision")
+                        .state("APPROVED".equals(status) ? "COMPLETED" : ("REJECTED".equals(status) ? "FAILED" : "PENDING"))
+                        .description("APPROVED".equals(status) ? "Electronic Travel Authorization (ETA) Granted" : ("REJECTED".equals(status) ? "Application Not Approved" : "Pending decision"))
+                        .timestamp("APPROVED".equals(status) || "REJECTED".equals(status) ? trip.getUpdatedAt() : null)
+                        .build()
+        );
+    }
+
+    private List<TimelineStep> buildDemoTimeline(DemoApplication app) {
         String status = app.getStatus();
         Instant base = app.getCreatedAt();
 
@@ -184,7 +247,7 @@ public class ApplicationTrackingController {
                         .step("PAYMENT")
                         .label("Fee Payment")
                         .state(getPaymentStepState(status))
-                        .description("Razorpay Test Gateway settlement and verification.")
+                        .description("Payment Gateway settlement and verification.")
                         .timestamp(base.plusSeconds(600))
                         .build(),
                 TimelineStep.builder()
