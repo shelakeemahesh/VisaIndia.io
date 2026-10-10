@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "brand": "VisaSetu (ビザセツ)",
+    "tagline": "統合渡航認証ポータル",
+    "eligibility": "適用ルート診断",
+    "apply": "新規申請",
+    "track": "進捗照会",
+    "conceptDisclaimer": "コンセプト検証版"
+  },
+  "hero": {
+    "badge": "簡素化 · 多言語対応 · 迅速",
+    "title": "一度の申請で、すべてのビザルートへ。",
+    "subtitle": "日本国籍を含むすべての旅行者へ：e-Visa、到着時ビザ(VoA)、大使館申請を比較。e-Visa・入国カード・健康申告をひとつのフォームで一括作成できます。",
+    "ctaCheck": "利用可能なルートを確認",
+    "ctaApply": "統合申請を始める"
+  },
+  "eligibility": {
+    "heading": "スマート・ビザルート診断",
+    "subheading": "国籍と渡航目的を選択すると、利用可能なすべての公式ルートを即座に一覧表示します。",
+    "nationalityLabel": "パスポート国籍",
+    "nationalityPlaceholder": "国籍を検索または選択...",
+    "purposeLabel": "渡航目的",
+    "arrivalDateLabel": "入国予定日 (任意)",
+    "checkButton": "ルートを検索",
+    "searching": "利用可能なルートを確認中...",
+    "resultsHeading": "対象のビザルート一覧:",
+    "routesFound": "{{count}}件のルートが見つかりました",
+    "recommended": "推奨",
+    "fee": "公式手数料",
+    "processingTime": "標準処理期間",
+    "validity": "有効期間",
+    "maxStay": "最長滞在可能日数",
+    "entries": "入国回数",
+    "allowedPorts": "利用可能入国港",
+    "documents": "必要書類",
+    "applyBy": "推奨申請期限",
+    "officialSource": "公式情報源",
+    "lastVerified": "最終確認日",
+    "startApplication": "このルートで申請を開始",
+    "fallbackTitle": "大使館への事前相談が必要です",
+    "fallbackContact": "最寄りのインド大使館または領事館へお問い合わせください",
+    "sampleDisclaimer": "サンプルデータ — 公式情報源をご確認ください。"
+  },
+  "footer": {
+    "disclaimer": "コンセプトプロジェクト — インド政府の公式サービスではありません。",
+    "purpose": "統一申請フロー、オフライン耐性、多言語UXを実証するコンセプトモデルです。",
+    "privacy": "プライバシーポリシー",
+    "terms": "利用規約",
+    "security": "セキュリティ概要"
+  }
+}

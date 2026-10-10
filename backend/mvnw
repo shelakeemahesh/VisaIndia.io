@@ -1,0 +1,3 @@
+#!/bin/sh
+# VisaSetu Maven Wrapper delegate
+exec mvn "$@"

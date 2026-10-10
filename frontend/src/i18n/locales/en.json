@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "brand": "VisaSetu",
+    "tagline": "Unified Travel Gateway",
+    "eligibility": "Check Eligibility",
+    "apply": "New Application",
+    "track": "Track Status",
+    "conceptDisclaimer": "Concept Demo"
+  },
+  "hero": {
+    "badge": "Simplified · Multilingual · Fast",
+    "title": "One Application. Every Visa Route.",
+    "subtitle": "Discover open visa routes for your nationality, compare processing times and fees, and complete your e-Visa, Arrival Card, and Health Declaration in a single unified flow.",
+    "ctaCheck": "Check Your Route",
+    "ctaApply": "Start Unified Trip"
+  },
+  "eligibility": {
+    "heading": "Smart Visa Route Finder",
+    "subheading": "Select your nationality and trip purpose to see every official route available to you.",
+    "nationalityLabel": "Passport Nationality",
+    "nationalityPlaceholder": "Select or search nationality...",
+    "purposeLabel": "Purpose of Travel",
+    "arrivalDateLabel": "Expected Arrival Date (Optional)",
+    "checkButton": "Find Visa Routes",
+    "searching": "Checking eligibility routes...",
+    "resultsHeading": "Available Visa Routes for",
+    "routesFound": "{{count}} routes available",
+    "recommended": "Recommended",
+    "fee": "Official Fee",
+    "processingTime": "Processing Time",
+    "validity": "Validity",
+    "maxStay": "Max Stay",
+    "entries": "Entries",
+    "allowedPorts": "Entry Ports",
+    "documents": "Required Documents",
+    "applyBy": "Recommended Apply-by Deadline",
+    "officialSource": "Official Government Source",
+    "lastVerified": "Last Verified",
+    "startApplication": "Apply via this Route",
+    "fallbackTitle": "Embassy Route Required",
+    "fallbackContact": "Contact Nearest Embassy",
+    "sampleDisclaimer": "Sample data — verify with official source."
+  },
+  "footer": {
+    "disclaimer": "Concept project — not affiliated with the Government of India.",
+    "purpose": "A demonstration platform proving unified visa workflows, offline resilience, and multilingual access.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "security": "Security Architecture"
+  }
+}
