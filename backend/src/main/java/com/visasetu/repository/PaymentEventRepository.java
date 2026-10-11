@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PaymentEventRepository extends JpaRepository<PaymentEvent, String> {
+    boolean existsByPaymentId(String paymentId);
+    java.util.Optional<PaymentEvent> findByPaymentId(String paymentId);
 }

@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, UUID> {
     Optional<PaymentOrder> findByIdempotencyKey(String idempotencyKey);
     Optional<PaymentOrder> findByOrderId(String orderId);
+    Optional<PaymentOrder> findByPaymentId(String paymentId);
+    Optional<PaymentOrder> findByRefundId(String refundId);
     Optional<PaymentOrder> findByReferenceId(String referenceId);
     List<PaymentOrder> findByStatusAndCreatedAtBefore(String status, Instant threshold);
 }

@@ -65,11 +65,28 @@ export interface SubmitTripResponse {
 export interface PaymentOrderDto {
   orderId: string;
   amount: number;
+  amountSubunits?: number;
   currency: string;
   status: string;
   idempotencyKey: string;
   razorpayKeyId: string;
   referenceId: string;
+}
+
+export interface PaymentVerificationRequest {
+  referenceId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+export interface PaymentVerificationResponse {
+  status: string;
+  referenceId: string;
+  orderId: string;
+  paymentId: string;
+  tripStatus: string;
+  message: string;
 }
 
 export interface TripDetailResponse {
@@ -234,6 +251,16 @@ export async function resyncPayment(referenceId: string): Promise<{
   const res = await apiClient.post('/payments/resync', {
     referenceId: referenceId.trim(),
   });
+  return res.data;
+}
+
+/**
+ * Verify client-side Razorpay checkout signature.
+ */
+export async function verifyPayment(
+  data: PaymentVerificationRequest
+): Promise<PaymentVerificationResponse> {
+  const res = await apiClient.post<PaymentVerificationResponse>('/payments/verify', data);
   return res.data;
 }
 

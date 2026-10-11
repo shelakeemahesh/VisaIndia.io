@@ -124,4 +124,66 @@ class PaymentControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("REJECTED"));
     }
+
+    @Test
+    @WithMockUser
+    @DisplayName("POST /api/v1/payments/verify verifies payment and returns 200")
+    void shouldVerifyPaymentSuccessfully() throws Exception {
+        Trip trip = Trip.builder()
+                .referenceId("VS-2026-9901")
+                .status("PAYMENT_PENDING")
+                .build();
+
+        given(tripService.getTripByReference("VS-2026-9901")).willReturn(Optional.of(trip));
+        given(paymentService.verifyPayment(any(com.visasetu.dto.PaymentVerificationDto.class)))
+                .willReturn(Map.of(
+                        "status", "VERIFIED",
+                        "referenceId", "VS-2026-9901",
+                        "orderId", "order_test_1",
+                        "paymentId", "pay_test_1",
+                        "tripStatus", "UNDER_REVIEW",
+                        "message", "Payment verified and recorded successfully."
+                ));
+
+        mockMvc.perform(post("/api/v1/payments/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "referenceId": "VS-2026-9901",
+                                  "razorpayOrderId": "order_test_1",
+                                  "razorpayPaymentId": "pay_test_1",
+                                  "razorpaySignature": "valid_sig_123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("VERIFIED"))
+                .andExpect(jsonPath("$.tripStatus").value("UNDER_REVIEW"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("POST /api/v1/payments/verify returns 400 on signature mismatch")
+    void shouldRejectVerifyWhenPaymentVerificationFails() throws Exception {
+        Trip trip = Trip.builder()
+                .referenceId("VS-2026-9901")
+                .status("PAYMENT_PENDING")
+                .build();
+
+        given(tripService.getTripByReference("VS-2026-9901")).willReturn(Optional.of(trip));
+        given(paymentService.verifyPayment(any(com.visasetu.dto.PaymentVerificationDto.class)))
+                .willThrow(new IllegalArgumentException("Invalid cryptographic signature"));
+
+        mockMvc.perform(post("/api/v1/payments/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "referenceId": "VS-2026-9901",
+                                  "razorpayOrderId": "order_test_1",
+                                  "razorpayPaymentId": "pay_test_1",
+                                  "razorpaySignature": "tampered_sig"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid cryptographic signature"));
+    }
 }
