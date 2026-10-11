@@ -97,6 +97,84 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyPayment(
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @jakarta.validation.Valid @RequestBody com.visasetu.dto.PaymentVerificationDto request
+    ) {
+        if (request.getReferenceId() == null || request.getReferenceId().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Application Reference ID is required."));
+        }
+
+        Optional<Trip> tripOpt = tripService.getTripByReference(request.getReferenceId().trim());
+        if (tripOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+        Trip trip = tripOpt.get();
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+        if (trip.getUserId() != null) {
+            boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
+            if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to verify payment for this application."));
+            }
+        } else if (trip.getGuestAccessToken() != null) {
+            boolean isMatchingToken = guestAccessToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(StandardCharsets.UTF_8),
+                            guestAccessToken.trim().getBytes(StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to verify payment for this application."));
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to verify payment for this application."));
+            }
+        }
+
+        try {
+            Map<String, Object> result = paymentService.verifyPayment(request);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @Data
+    public static class RefundRequestDto {
+        private String refundId;
+        private java.math.BigDecimal amount;
+        private String reason;
+    }
+
+    @PostMapping("/{orderId}/refund")
+    public ResponseEntity<?> refundPayment(
+            @PathVariable String orderId,
+            @RequestBody(required = false) RefundRequestDto request
+    ) {
+        if (!SecurityUtils.hasRole("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only administrators can initiate refunds."));
+        }
+        try {
+            String refundId = request != null ? request.getRefundId() : null;
+            java.math.BigDecimal amount = request != null ? request.getAmount() : null;
+            String reason = request != null ? request.getReason() : null;
+            Map<String, Object> result = paymentService.processRefund(orderId, refundId, amount, reason);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping(value = "/webhook", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> handleWebhook(
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,

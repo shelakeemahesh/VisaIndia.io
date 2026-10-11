@@ -93,18 +93,34 @@ describe('StartApplicationPage — Official Preliminary Form', () => {
       orderId: 'order_test_999',
       referenceId: 'VS-2026-9876',
       amount: 2500,
+      amountSubunits: 2500,
       currency: 'USD',
       status: 'CREATED',
       idempotencyKey: 'idemp-999',
       razorpayKeyId: 'rzp_test_key',
     });
 
-    vi.mocked(tripsApi.resyncPayment).mockResolvedValue({
+    vi.mocked(tripsApi.verifyPayment).mockResolvedValue({
+      status: 'VERIFIED',
       referenceId: 'VS-2026-9876',
-      status: 'CAPTURED',
-      newTripStatus: 'APPROVED',
+      orderId: 'order_test_999',
+      paymentId: 'pay_test_888',
+      tripStatus: 'APPROVED',
       message: 'Payment verified and confirmed',
     });
+
+    // Mock window.Razorpay constructor
+    (window as any).Razorpay = vi.fn().mockImplementation((options: any) => ({
+      open: vi.fn().mockImplementation(() => {
+        // Simulate successful completion by user
+        options.handler({
+          razorpay_order_id: 'order_test_999',
+          razorpay_payment_id: 'pay_test_888',
+          razorpay_signature: 'sig_mock_signature_hex',
+        });
+      }),
+      on: vi.fn(),
+    }));
 
     render(
       <MemoryRouter initialEntries={['/start-application']}>
@@ -136,12 +152,57 @@ describe('StartApplicationPage — Official Preliminary Form', () => {
 
     await waitFor(() => {
       expect(tripsApi.createPaymentOrder).toHaveBeenCalledWith('VS-2026-9876');
-      expect(tripsApi.resyncPayment).toHaveBeenCalledWith('VS-2026-9876');
+      expect(tripsApi.verifyPayment).toHaveBeenCalledWith({
+        referenceId: 'VS-2026-9876',
+        razorpayOrderId: 'order_test_999',
+        razorpayPaymentId: 'pay_test_888',
+        razorpaySignature: 'sig_mock_signature_hex',
+      });
     });
 
     // Check approved screen and ETA links
     expect(await screen.findByText(/Official ETA Granted/i)).toBeInTheDocument();
     expect(screen.getByText(/Download Official ETA \(PDF\)/i)).toBeInTheDocument();
     expect(screen.getByText(/View Biometric QR Pass/i)).toBeInTheDocument();
+  });
+
+  it('never sets UNDER_REVIEW on payment initiation error and displays real error', async () => {
+    vi.mocked(tripsApi.createOrGetDraft).mockResolvedValue({
+      draftId: 'draft-error-test',
+      referenceId: 'VS-2026-ERR',
+      applicantEmail: 'error@test.com',
+      currentStep: 1,
+      sharedProfileJson: '{}',
+      modulesJson: '{}',
+      version: 1,
+      createdAt: '2026-10-10T00:00:00Z',
+      updatedAt: '2026-10-10T00:00:00Z',
+    });
+
+    vi.mocked(tripsApi.createPaymentOrder).mockRejectedValue(
+      new Error('Gateway timeout: unable to connect to Razorpay')
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/start-application']}>
+        <StartApplicationPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/^Email ID \*/i), { target: { value: 'error@test.com' } });
+    fireEvent.change(screen.getByLabelText(/^Re-enter Email ID \*/i), { target: { value: 'error@test.com' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Register Application/i }));
+
+    expect(await screen.findByText('VS-2026-ERR')).toBeInTheDocument();
+
+    // Trigger payment
+    const payBtn = screen.getByRole('button', { name: /Pay Government Fee/i });
+    fireEvent.click(payBtn);
+
+    // Verify error is shown and status remains REGISTERED, never UNDER_REVIEW
+    expect(await screen.findByText(/Gateway timeout: unable to connect to Razorpay/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Application Under Consular Review/i)).not.toBeInTheDocument();
+    expect(screen.getByText('REGISTERED')).toBeInTheDocument();
   });
 });

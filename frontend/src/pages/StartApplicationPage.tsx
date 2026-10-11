@@ -15,7 +15,7 @@ import {
   createOrGetDraft,
   submitDraft,
   createPaymentOrder,
-  resyncPayment,
+  verifyPayment,
   getTripByReference,
   getEtaPdfDownloadUrl,
   getQrPassImageUrl,
@@ -97,6 +97,30 @@ const VISA_SERVICES = [
     description: 'To attend seminars or conferences with Government of India nodal clearance.',
   },
 ];
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    if (typeof document === 'undefined') {
+      resolve(false);
+      return;
+    }
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 export const StartApplicationPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -244,20 +268,85 @@ export const StartApplicationPage: React.FC = () => {
     }
   };
 
-  // Payment checkout simulation
+  // Payment checkout with real Razorpay Checkout modal & cryptographic verification
   const handleStartPayment = async () => {
     if (!registeredDraft) return;
     setPaying(true);
+    setErrorMessage(null);
+
     try {
       const order = await createPaymentOrder(registeredDraft.referenceId);
       setPaymentOrder(order);
-      // Auto-reconcile to advance status
-      const res = await resyncPayment(registeredDraft.referenceId);
-      setApplicationStatus(res.newTripStatus || 'UNDER_REVIEW');
-    } catch (err) {
-      console.error('Payment order creation error:', err);
-      setApplicationStatus('UNDER_REVIEW');
-    } finally {
+
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded || !(window as any).Razorpay) {
+        throw new Error('Payment gateway SDK could not be loaded. Please check your internet connection.');
+      }
+
+      const options = {
+        key: order.razorpayKeyId,
+        amount: order.amountSubunits || Math.round(order.amount * 100),
+        currency: order.currency || 'USD',
+        name: 'VisaIndia.io',
+        description: `Consular Visa Fee — ${registeredDraft.referenceId}`,
+        order_id: order.orderId,
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            setPaying(true);
+            const verifyRes = await verifyPayment({
+              referenceId: registeredDraft.referenceId,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            if (verifyRes.status === 'VERIFIED' || verifyRes.tripStatus === 'UNDER_REVIEW' || verifyRes.tripStatus === 'PAID') {
+              setApplicationStatus(verifyRes.tripStatus || 'UNDER_REVIEW');
+            } else {
+              setErrorMessage(verifyRes.message || 'Payment verification failed.');
+            }
+          } catch (verifyErr: any) {
+            console.error('Payment verification failed:', verifyErr);
+            const msg = verifyErr?.response?.data?.error || verifyErr?.message || 'Payment verification failed.';
+            setErrorMessage(msg);
+          } finally {
+            setPaying(false);
+          }
+        },
+        prefill: {
+          name: `Applicant (${nationality})`,
+          email: email,
+        },
+        notes: {
+          referenceId: registeredDraft.referenceId,
+        },
+        theme: {
+          color: '#0f766e',
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+            // In handleStartPayment never set UNDER_REVIEW on dismiss or error
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (resp: any) => {
+        console.error('Payment failed:', resp.error);
+        const failMsg = resp.error?.description || resp.error?.reason || 'Transaction could not be completed.';
+        setErrorMessage(`Payment failed: ${failMsg}`);
+        setPaying(false);
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error('Payment initiation error:', err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to initiate payment.';
+      setErrorMessage(errMsg);
+      // In handleStartPayment never set UNDER_REVIEW on error; show the error and the real status
       setPaying(false);
     }
   };
@@ -305,6 +394,16 @@ export const StartApplicationPage: React.FC = () => {
                 Your preliminary registration has been recorded on the system. Please note down your Application Reference ID for future tracking and fee payment.
               </p>
             </div>
+
+            {errorMessage && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-xs text-rose-800">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-semibold">Payment Status / Alert:</strong>
+                  <span>{errorMessage}</span>
+                </div>
+              </div>
+            )}
 
             {/* DETAILS SUMMARY */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-200 text-xs mb-6">

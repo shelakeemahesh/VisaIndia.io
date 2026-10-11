@@ -46,6 +46,9 @@ public class PaymentOrder {
     @Builder.Default
     private String status = "CREATED"; // CREATED, PAID, FAILED, REFUNDED
 
+    @Column(name = "refund_id", unique = true, length = 100)
+    private String refundId;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
