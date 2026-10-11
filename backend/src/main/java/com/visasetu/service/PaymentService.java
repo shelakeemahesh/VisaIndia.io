@@ -2,8 +2,10 @@ package com.visasetu.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.razorpay.Order;
 import com.razorpay.Payment;
 import com.razorpay.RazorpayClient;
+import org.json.JSONObject;
 import com.visasetu.domain.entity.PaymentEvent;
 import com.visasetu.domain.entity.PaymentOrder;
 import com.visasetu.domain.entity.PaymentOutboxMessage;
@@ -83,7 +85,25 @@ public class PaymentService {
                 ? trip.getTotalAmount()
                 : new BigDecimal("25.00");
 
-        String orderId = "order_rzp_" + trip.getReferenceId().replace("-", "_") + "_" + System.currentTimeMillis();
+        String orderId;
+        if (!razorpayKeyId.startsWith("rzp_test_sample")) {
+            try {
+                RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+                JSONObject orderRequest = new JSONObject();
+                int amountSubunits = amount.multiply(BigDecimal.valueOf(100)).intValue();
+                orderRequest.put("amount", amountSubunits);
+                orderRequest.put("currency", trip.getCurrency() != null ? trip.getCurrency() : "USD");
+                orderRequest.put("receipt", trip.getReferenceId());
+                Order rzpOrder = razorpayClient.orders.create(orderRequest);
+                orderId = rzpOrder.get("id");
+                log.info("Initialized live Razorpay gateway order {} for reference {}", orderId, trip.getReferenceId());
+            } catch (Exception e) {
+                log.error("Failed to initialize live order on Razorpay gateway: {}", e.getMessage(), e);
+                throw new IllegalStateException("Payment gateway communication failed: " + e.getMessage());
+            }
+        } else {
+            orderId = "order_rzp_" + trip.getReferenceId().replace("-", "_") + "_" + System.currentTimeMillis();
+        }
 
         PaymentOrder order = PaymentOrder.builder()
                 .tripId(trip.getId())

@@ -4,6 +4,8 @@ import com.visasetu.domain.entity.Trip;
 import com.visasetu.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,8 @@ import java.time.Year;
 import java.util.List;
 
 @Service
+@Profile({"dev", "local", "test", "default"})
+@ConditionalOnProperty(name = "visasetu.mock.adjudication.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class MockGovernmentDecisionService {
