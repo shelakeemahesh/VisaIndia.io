@@ -42,11 +42,16 @@ public class JwtTokenService {
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
+    public static final String ISSUER = "visasetu-api";
+    public static final String AUDIENCE = "visasetu-web";
+
     public String generateToken(UUID userId, String email, String role) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(jwtProperties.getEffectiveExpirationSeconds());
 
         return Jwts.builder()
+                .issuer(ISSUER)
+                .audience().add(AUDIENCE).and()
                 .subject(userId.toString())
                 .claim("email", email)
                 .claim("role", role)
@@ -59,6 +64,8 @@ public class JwtTokenService {
     public Claims extractClaims(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
+                .requireIssuer(ISSUER)
+                .requireAudience(AUDIENCE)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

@@ -1,5 +1,6 @@
 server:
   port: ${PORT:${APP_PORT:8080}}
+  forward-headers-strategy: native
 
 spring:
   application:
@@ -45,6 +46,7 @@ visasetu:
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
   security:
     pii-encryption-key: ${PII_ENCRYPTION_KEY:}
+    otp-pepper: ${OTP_PEPPER:visasetu-enterprise-otp-pepper-2026-super-secret}
   razorpay:
     key-id: ${RAZORPAY_KEY_ID:}
     key-secret: ${RAZORPAY_KEY_SECRET:}

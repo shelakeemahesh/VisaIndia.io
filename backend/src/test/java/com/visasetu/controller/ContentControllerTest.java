@@ -161,8 +161,16 @@ class ContentControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/content/ingest rejects unauthenticated requests")
+    @DisplayName("POST /api/v1/content/ingest rejects unauthenticated requests with 401")
     void shouldRejectUnauthenticatedIngestion() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/content/ingest"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "TRAVELER")
+    @DisplayName("POST /api/v1/content/ingest rejects unauthorized traveler with 403")
+    void shouldRejectUnauthorizedTraveler() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/content/ingest"))
                 .andExpect(status().isForbidden());
     }

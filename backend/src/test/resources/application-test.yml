@@ -37,6 +37,7 @@ visasetu:
     expiration-hours: 24
   security:
     pii-encryption-key: dGhpcy1pcy1hLTMyLWJ5dGUtc2VjcmV0LWtleS0xMjM=
+    otp-pepper: test-otp-pepper-1234567890
   razorpay:
     key-id: rzp_test_mock_123
     key-secret: mock_secret_456

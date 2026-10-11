@@ -36,7 +36,7 @@ public class User {
     @Column(length = 100)
     private String nationality;
 
-    @Column(name = "passport_number", length = 50)
+    @Column(name = "passport_number", length = 255)
     private String passportNumber;
 
     @Column(name = "phone_number", length = 50)

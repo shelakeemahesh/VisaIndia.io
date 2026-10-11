@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(150) DEFAULT 'Traveler',
     password_hash VARCHAR(255),
     nationality VARCHAR(100),
-    passport_number VARCHAR(50),
+    passport_number VARCHAR(255),
     phone_number VARCHAR(50),
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,

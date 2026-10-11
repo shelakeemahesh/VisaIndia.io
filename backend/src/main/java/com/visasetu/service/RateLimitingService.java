@@ -10,12 +10,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Thread-safe in-memory sliding window rate limiter for security-sensitive operations.
+ * Thread-safe sliding window rate limiter with bounded memory eviction.
  */
 @Service
 @Slf4j
 public class RateLimitingService {
 
+    private static final int MAX_TRACKED_KEYS = 10_000;
     private final Map<String, Deque<Long>> requestLogs = new ConcurrentHashMap<>();
 
     /**
@@ -29,6 +30,11 @@ public class RateLimitingService {
     public synchronized boolean tryAcquire(String key, int maxRequests, long windowSeconds) {
         long now = Instant.now().toEpochMilli();
         long windowStart = now - (windowSeconds * 1000L);
+
+        // Memory bounding: if map has grown too large, perform batch eviction of stale keys
+        if (requestLogs.size() > MAX_TRACKED_KEYS) {
+            pruneStaleKeys(windowStart);
+        }
 
         Deque<Long> timestamps = requestLogs.computeIfAbsent(key, k -> new ArrayDeque<>());
 
@@ -46,7 +52,23 @@ public class RateLimitingService {
         return true;
     }
 
+    private void pruneStaleKeys(long thresholdEpochMilli) {
+        requestLogs.entrySet().removeIf(entry -> {
+            Deque<Long> queue = entry.getValue();
+            synchronized (queue) {
+                while (!queue.isEmpty() && queue.peekFirst() < thresholdEpochMilli) {
+                    queue.pollFirst();
+                }
+                return queue.isEmpty();
+            }
+        });
+    }
+
     public synchronized void reset(String key) {
         requestLogs.remove(key);
+    }
+
+    public int getTrackedKeyCount() {
+        return requestLogs.size();
     }
 }
