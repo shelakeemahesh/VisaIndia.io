@@ -29,6 +29,12 @@ public class ProductionSecurityValidator implements ApplicationRunner {
     @Value("${visasetu.razorpay.key-id:}")
     private String razorpayKeyId;
 
+    @Value("${visasetu.razorpay.key-secret:}")
+    private String razorpayKeySecret;
+
+    @Value("${visasetu.razorpay.webhook-secret:}")
+    private String razorpayWebhookSecret;
+
     private static final String DEFAULT_JWT_SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
     private static final String LEGACY_DEFAULT_JWT_SECRET = "VisaSetuEnterpriseSecretKeyForJwtSigningMustBeAtLeast256BitsLong2026";
     private static final String DEFAULT_PII_KEY = "dGhpcy1pcy1hLTMyLWJ5dGUtc2VjcmV0LWtleS0xMjM=";
@@ -36,22 +42,39 @@ public class ProductionSecurityValidator implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         Set<String> activeProfiles = Set.of(environment.getActiveProfiles());
-        boolean isProduction = activeProfiles.contains("prod") || activeProfiles.contains("production");
+        boolean isLocalOrTest = activeProfiles.contains("local") || activeProfiles.contains("test");
 
-        if (isProduction) {
-            log.info("Production profile detected. Running enterprise security configuration validation...");
-
-            if (mockAdjudicationEnabled) {
-                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Mock government adjudication cannot be enabled in production environments.");
-            }
+        if (!isLocalOrTest) {
+            log.info("Non-local profile detected. Running security secret validation...");
 
             if (jwtSecret == null || jwtSecret.isBlank() || jwtSecret.equals(DEFAULT_JWT_SECRET)
                     || jwtSecret.equals(LEGACY_DEFAULT_JWT_SECRET) || jwtSecret.length() < 32) {
-                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Default or weak JWT secret detected in production environment.");
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Default, weak, or missing JWT secret detected outside local profile.");
             }
 
             if (piiEncryptionKey == null || piiEncryptionKey.isBlank() || piiEncryptionKey.equals(DEFAULT_PII_KEY)) {
-                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Default PII encryption key detected in production environment.");
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Default or missing PII encryption key detected outside local profile.");
+            }
+
+            if (razorpayKeyId == null || razorpayKeyId.isBlank()) {
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Missing RAZORPAY_KEY_ID outside local profile.");
+            }
+
+            if (razorpayKeySecret == null || razorpayKeySecret.isBlank()) {
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Missing RAZORPAY_KEY_SECRET outside local profile.");
+            }
+
+            if (razorpayWebhookSecret == null || razorpayWebhookSecret.isBlank()) {
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Missing RAZORPAY_WEBHOOK_SECRET outside local profile.");
+            }
+        }
+
+        boolean isProduction = activeProfiles.contains("prod") || activeProfiles.contains("production");
+        if (isProduction) {
+            log.info("Production profile detected. Running enterprise production security checks...");
+
+            if (mockAdjudicationEnabled) {
+                throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Mock government adjudication cannot be enabled in production environments.");
             }
 
             if (razorpayKeyId != null && razorpayKeyId.startsWith("rzp_test_sample")) {

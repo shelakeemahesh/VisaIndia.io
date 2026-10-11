@@ -45,7 +45,7 @@ flowchart TB
     end
 
     subgraph Data["Persistence & Storage Layer"]
-        PG[("PostgreSQL 16 (System of Record)<br/>- visa_rule<br/>- users<br/>- trips (snapshots)<br/>- payments<br/>- payment_outbox")]
+        PG[("PostgreSQL 16 (System of Record)<br/>- visa_rule<br/>- users<br/>- trips<br/>- payment_orders<br/>- payment_events<br/>- payment_outbox")]
         MONGO[("MongoDB 7 (Dynamic Documents)<br/>- form_modules (Schemas)<br/>- draft_applications (Autosaved)<br/>- audit_logs")]
         REDIS[("Redis 7 (Hot Cache & State)<br/>- Idempotency Keys<br/>- Rate Limits<br/>- Email OTPs")]
         MINIO[("MinIO (S3 Object Storage)<br/>- Passport Scans<br/>- Photos<br/>- Generated PDF Grants")]
