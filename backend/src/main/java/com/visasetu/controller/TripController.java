@@ -69,6 +69,7 @@ public class TripController {
         private String nationality;
         private String categoryName;
         private String status;
+        private String preparationStatus;
         private BigDecimal totalAmount;
         private String currency;
         private LocalDate arrivalDate;
@@ -94,6 +95,7 @@ public class TripController {
                 .nationality(trip.getNationality())
                 .categoryName(trip.getCategoryName())
                 .status(trip.getStatus())
+                .preparationStatus(trip.getPreparationStatus() != null ? trip.getPreparationStatus() : "PREPARATION_IN_PROGRESS")
                 .totalAmount(trip.getTotalAmount())
                 .currency(trip.getCurrency())
                 .arrivalDate(trip.getArrivalDate())
@@ -131,18 +133,27 @@ public class TripController {
     @PutMapping("/drafts/{draftId}")
     public ResponseEntity<?> autosaveDraft(
             @PathVariable UUID draftId,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
             @RequestBody AutosaveDraftRequest request
     ) {
         try {
             Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
-            TripDraft saved = tripDraftService.autosaveDraft(
-                    draftId,
-                    currentUserId.orElse(null),
-                    request.getVersion(),
-                    request.getSharedProfileJson(),
-                    request.getModulesJson(),
-                    request.getStep()
-            );
+            TripDraft saved = (guestAccessToken != null && !guestAccessToken.isBlank())
+                    ? tripDraftService.autosaveDraft(
+                            draftId,
+                            currentUserId.orElse(null),
+                            guestAccessToken,
+                            request.getVersion(),
+                            request.getSharedProfileJson(),
+                            request.getModulesJson(),
+                            request.getStep())
+                    : tripDraftService.autosaveDraft(
+                            draftId,
+                            currentUserId.orElse(null),
+                            request.getVersion(),
+                            request.getSharedProfileJson(),
+                            request.getModulesJson(),
+                            request.getStep());
             return ResponseEntity.ok(saved);
         } catch (AccessDeniedException ade) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ade.getMessage()));
@@ -159,10 +170,15 @@ public class TripController {
     }
 
     @GetMapping("/drafts/{draftId}")
-    public ResponseEntity<?> getDraft(@PathVariable UUID draftId) {
+    public ResponseEntity<?> getDraft(
+            @PathVariable UUID draftId,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken
+    ) {
         try {
             Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
-            return tripDraftService.getDraft(draftId, currentUserId.orElse(null))
+            return ((guestAccessToken != null && !guestAccessToken.isBlank())
+                    ? tripDraftService.getDraft(draftId, currentUserId.orElse(null), guestAccessToken)
+                    : tripDraftService.getDraft(draftId, currentUserId.orElse(null)))
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.notFound().build());
         } catch (AccessDeniedException ade) {
@@ -173,18 +189,27 @@ public class TripController {
     @PostMapping("/drafts/{draftId}/submit")
     public ResponseEntity<?> submitDraft(
             @PathVariable UUID draftId,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
             @RequestBody SubmitDraftRequest request
     ) {
         try {
             Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
-            Trip trip = tripService.submitTripFromDraft(
-                    draftId,
-                    currentUserId.orElse(null),
-                    request.getVersion(),
-                    request.getApplicantName(),
-                    request.getArrivalDate(),
-                    request.getPort()
-            );
+            Trip trip = (guestAccessToken != null && !guestAccessToken.isBlank())
+                    ? tripService.submitTripFromDraft(
+                            draftId,
+                            currentUserId.orElse(null),
+                            guestAccessToken,
+                            request.getVersion(),
+                            request.getApplicantName(),
+                            request.getArrivalDate(),
+                            request.getPort())
+                    : tripService.submitTripFromDraft(
+                            draftId,
+                            currentUserId.orElse(null),
+                            request.getVersion(),
+                            request.getApplicantName(),
+                            request.getArrivalDate(),
+                            request.getPort());
 
             List<TripModule> modules = tripService.getTripModules(trip.getId());
             return ResponseEntity.ok(toDto(trip, modules));
@@ -218,7 +243,10 @@ public class TripController {
     }
 
     @GetMapping("/{referenceId}")
-    public ResponseEntity<?> getTrip(@PathVariable String referenceId) {
+    public ResponseEntity<?> getTrip(
+            @PathVariable String referenceId,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken
+    ) {
         Optional<Trip> tripOpt = tripService.getTripByReference(referenceId.trim());
         if (tripOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
@@ -236,8 +264,25 @@ public class TripController {
                         "error", "You do not have permission to view this application."
                 ));
             }
+        } else if (trip.getGuestAccessToken() != null) {
+            // Unowned guest application with token
+            boolean isMatchingToken = guestAccessToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            guestAccessToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("IDOR attempt: User {} attempted to access unowned trip {} with invalid guest token",
+                        currentUserId.orElse(null), referenceId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "You do not have permission to view this application."
+                ));
+            }
         } else if (trip.getApplicantEmail() != null) {
-            // Guest application: only ADMIN or authenticated applicant with matching email can access
             boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
                     .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
                     .isPresent();

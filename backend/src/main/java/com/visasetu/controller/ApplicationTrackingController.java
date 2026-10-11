@@ -49,6 +49,8 @@ public class ApplicationTrackingController {
         private String nationality;
         private String categoryName;
         private String status;
+        private String preparationStatus;
+        private String officialPortalUrl;
         private String orderId;
         private String paymentId;
         private Double amount;
@@ -136,6 +138,8 @@ public class ApplicationTrackingController {
                     .nationality(trip.getNationality())
                     .categoryName(trip.getCategoryName())
                     .status(trip.getStatus())
+                    .preparationStatus(trip.getPreparationStatus() != null ? trip.getPreparationStatus() : "PREPARATION_IN_PROGRESS")
+                    .officialPortalUrl("https://indianvisaonline.gov.in/evisa/Registration")
                     .amount(trip.getTotalAmount() != null ? trip.getTotalAmount().doubleValue() : null)
                     .arrivalDate(trip.getArrivalDate() != null ? trip.getArrivalDate().toString() : null)
                     .portOfArrival(trip.getPortOfArrival())
@@ -154,6 +158,8 @@ public class ApplicationTrackingController {
                     .nationality(app.getNationality())
                     .categoryName(app.getCategoryName())
                     .status(app.getStatus())
+                    .preparationStatus("PREPARATION_IN_PROGRESS")
+                    .officialPortalUrl("https://indianvisaonline.gov.in/evisa/Registration")
                     .orderId(app.getOrderId())
                     .paymentId(app.getPaymentId())
                     .amount(app.getAmount() != null ? app.getAmount().doubleValue() : null)
@@ -188,37 +194,39 @@ public class ApplicationTrackingController {
         return List.of(
                 TimelineStep.builder()
                         .step("DRAFT")
-                        .label("Application Drafted")
+                        .label("Preparation Draft")
                         .state("COMPLETED")
                         .description("Profile, passport specs and travel itinerary collected.")
                         .timestamp(base)
                         .build(),
                 TimelineStep.builder()
                         .step("SUBMITTED")
-                        .label("Submitted to System")
+                        .label("Dossier Registered")
                         .state(isPastOrCurrent(status, "SUBMITTED"))
-                        .description("Application snapshot recorded in system of record.")
+                        .description("Application snapshot recorded in preparation system.")
                         .timestamp(trip.getSubmittedAt() != null ? trip.getSubmittedAt() : base)
                         .build(),
                 TimelineStep.builder()
                         .step("PAYMENT")
-                        .label("Fee Payment")
+                        .label("Assistance Fee")
                         .state(getPaymentStepState(status))
-                        .description("Fee transaction verification and settlement.")
+                        .description("Preparation & document review service fee settlement.")
                         .timestamp(base.plusSeconds(300))
                         .build(),
                 TimelineStep.builder()
                         .step("UNDER_REVIEW")
-                        .label("Consular Review")
+                        .label("Document Verification")
                         .state(isPastOrCurrent(status, "UNDER_REVIEW"))
-                        .description("Automated security screening & jurisdiction review.")
+                        .description("Photo specifications & passport bio-page validation.")
                         .timestamp(base.plusSeconds(600))
                         .build(),
                 TimelineStep.builder()
                         .step("FINAL_DECISION")
-                        .label("Final Decision")
-                        .state("APPROVED".equals(status) ? "COMPLETED" : ("REJECTED".equals(status) ? "FAILED" : "PENDING"))
-                        .description("APPROVED".equals(status) ? "Electronic Travel Authorization (ETA) Granted" : ("REJECTED".equals(status) ? "Application Not Approved" : "Pending decision"))
+                        .label("Official Portal Handoff")
+                        .state("READY_FOR_OFFICIAL_HANDOFF".equalsIgnoreCase(trip.getPreparationStatus()) || "APPROVED".equals(status) ? "COMPLETED" : ("REJECTED".equals(status) ? "FAILED" : "PENDING"))
+                        .description("READY_FOR_OFFICIAL_HANDOFF".equalsIgnoreCase(trip.getPreparationStatus()) || "APPROVED".equals(status)
+                                ? "Application verified. Ready for submission on official portal: https://indianvisaonline.gov.in"
+                                : ("REJECTED".equals(status) ? "Preparation flagged requirements conflict" : "Awaiting document verification"))
                         .timestamp("APPROVED".equals(status) || "REJECTED".equals(status) ? trip.getUpdatedAt() : null)
                         .build()
         );

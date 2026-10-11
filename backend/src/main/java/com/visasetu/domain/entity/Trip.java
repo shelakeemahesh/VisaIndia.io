@@ -49,6 +49,13 @@ public class Trip {
     @Builder.Default
     private String status = "DRAFT"; // DRAFT, SUBMITTED, PAYMENT_PENDING, PAID, UNDER_REVIEW, APPROVED, REJECTED, PAYMENT_FAILED
 
+    @Column(name = "guest_access_token", length = 128)
+    private String guestAccessToken;
+
+    @Column(name = "preparation_status", length = 64)
+    @Builder.Default
+    private String preparationStatus = "PREPARATION_IN_PROGRESS";
+
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;

@@ -72,6 +72,10 @@ public class JwtTokenService {
         return UUID.fromString(extractClaims(token).getSubject());
     }
 
+    public Date extractIssuedAt(String token) {
+        return extractClaims(token).getIssuedAt();
+    }
+
     public long getExpirationSeconds() {
         return tokenExpirationSeconds;
     }

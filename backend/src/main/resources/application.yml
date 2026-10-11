@@ -54,11 +54,15 @@ visasetu:
     secret-key: ${MINIO_ROOT_PASSWORD:minioadmin}
     bucket: ${MINIO_BUCKET:visasetu-documents}
 
+  mock:
+    adjudication:
+      enabled: ${MOCK_ADJUDICATION_ENABLED:false}
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info
   endpoint:
     health:
-      show-details: always
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:when_authorized}

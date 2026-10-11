@@ -47,7 +47,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/applications/track").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
 
-                        // 3. Explicit Public Endpoints Allowlist
+                        // 3. User-Scoped Private Endpoints
+                        .requestMatchers("/api/v1/trips/my").authenticated()
+                        .requestMatchers("/api/v1/users/**").authenticated()
+
+                        // 4. Guest & Public Endpoints (Secured via Cryptographic Token / Purpose-Bound OTP / Allowlist)
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/eligibility/**",
@@ -58,19 +62,14 @@ public class SecurityConfig {
                                 "/api/v1/faqs/**",
                                 "/api/v1/help/**",
                                 "/api/v1/mcp/**",
+                                "/api/v1/trips/**",
+                                "/api/v1/payments/**",
+                                "/api/v1/documents/**",
+                                "/api/v1/applications/**",
                                 "/llms.txt",
                                 "/actuator/health",
                                 "/error"
                         ).permitAll()
-
-                        // 4. Protected Endpoints (Applications, Trips, Payments, Documents, Users, Settings)
-                        .requestMatchers(
-                                "/api/v1/trips/**",
-                                "/api/v1/payments/**",
-                                "/api/v1/documents/**",
-                                "/api/v1/users/**",
-                                "/api/v1/applications/**"
-                        ).authenticated()
 
                         // 5. Catch-all: Deny all unauthenticated requests
                         .anyRequest().authenticated()
@@ -90,8 +89,8 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-ID", "X-Razorpay-Signature", "X-Razorpay-Event-Id"));
-        config.setExposedHeaders(List.of("X-Correlation-ID", "Authorization"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-ID", "X-Razorpay-Signature", "X-Razorpay-Event-Id", "X-Guest-Access-Token"));
+        config.setExposedHeaders(List.of("X-Correlation-ID", "Authorization", "X-Guest-Access-Token"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

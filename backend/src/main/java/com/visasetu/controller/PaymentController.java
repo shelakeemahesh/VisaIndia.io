@@ -42,6 +42,7 @@ public class PaymentController {
     @PostMapping("/create-order")
     public ResponseEntity<?> createOrder(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
             @RequestBody CreateOrderDto request
     ) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
@@ -63,6 +64,18 @@ public class PaymentController {
             if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
                 log.warn("IDOR attempt: User {} attempted to create payment order for trip {} owned by {}",
                         currentUserId.orElse(null), request.getReferenceId(), trip.getUserId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to initiate payment for this application."));
+            }
+        } else if (trip.getGuestAccessToken() != null) {
+            boolean isMatchingToken = guestAccessToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            guestAccessToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("IDOR attempt: Missing/invalid credentials for payment order on unowned trip {}", request.getReferenceId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to initiate payment for this application."));
             }
         } else if (trip.getApplicantEmail() != null) {
@@ -107,7 +120,10 @@ public class PaymentController {
     }
 
     @PostMapping("/resync")
-    public ResponseEntity<?> resyncPayment(@RequestBody ResyncDto request) {
+    public ResponseEntity<?> resyncPayment(
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @RequestBody ResyncDto request
+    ) {
         if (request.getReferenceId() == null || request.getReferenceId().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Reference ID is required."));
         }
@@ -122,6 +138,17 @@ public class PaymentController {
         if (trip.getUserId() != null) {
             boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
             if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
+            }
+        } else if (trip.getGuestAccessToken() != null) {
+            boolean isMatchingToken = guestAccessToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            guestAccessToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
             }
         } else if (trip.getApplicantEmail() != null) {
@@ -142,7 +169,43 @@ public class PaymentController {
     }
 
     @GetMapping(value = "/{referenceId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamPaymentEvents(@PathVariable String referenceId) {
+    public SseEmitter streamPaymentEvents(
+            @PathVariable String referenceId,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @RequestParam(value = "token", required = false) String guestTokenParam
+    ) {
+        Optional<Trip> tripOpt = tripService.getTripByReference(referenceId.trim());
+        if (tripOpt.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found.");
+        }
+        Trip trip = tripOpt.get();
+        Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
+        if (trip.getUserId() != null) {
+            boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
+            if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to subscribe to this application.");
+            }
+        } else if (trip.getGuestAccessToken() != null) {
+            String token = guestAccessToken != null ? guestAccessToken : guestTokenParam;
+            boolean isMatchingToken = token != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            token.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to subscribe to this application.");
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to subscribe to this application.");
+            }
+        }
+
         log.info("Client subscribed to SSE live status for {}", referenceId);
         return paymentSseService.subscribe(referenceId);
     }
