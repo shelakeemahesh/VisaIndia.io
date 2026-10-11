@@ -55,4 +55,20 @@ class DocumentGenerationServiceTest {
         assertThat(pngBytes[2]).isEqualTo((byte) 'N');
         assertThat(pngBytes[3]).isEqualTo((byte) 'G');
     }
+
+    @Test
+    @DisplayName("generateSignedQrToken generates signed QR token containing HMAC signature")
+    void generateSignedQrToken_includesHmacSignature() {
+        Trip trip = Trip.builder()
+                .referenceId("VS-2026-7890")
+                .status("APPROVED")
+                .applicantName("Kenji Sato")
+                .nationality("JPN")
+                .categoryName("e-Tourist Visa (30 Days)")
+                .portOfArrival("Delhi (DEL)")
+                .build();
+
+        String token = service.generateSignedQrToken(trip);
+        assertThat(token).contains("DOSSIER:VS-2026-7890").contains("|STATUS:APPROVED").contains("|SIG:");
+    }
 }

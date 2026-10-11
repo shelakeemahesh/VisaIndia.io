@@ -8,13 +8,46 @@ import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfWriter;
 import com.visasetu.domain.entity.Trip;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 
 @Service
 @Slf4j
 public class DocumentGenerationService {
+
+    @Value("${visasetu.security.otp-pepper:visasetu-enterprise-otp-pepper-2026-super-secret}")
+    private String qrSigningPepper = "visasetu-enterprise-otp-pepper-2026-super-secret";
+
+    /**
+     * Generate cryptographically signed QR verification token using HMAC-SHA256.
+     */
+    public String generateSignedQrToken(Trip trip) {
+        String payload = "DOSSIER:" + trip.getReferenceId() +
+                "|STATUS:" + trip.getStatus() +
+                "|NAME:" + trip.getApplicantName().toUpperCase() +
+                "|NAT:" + trip.getNationality() +
+                "|PORT:" + (trip.getPortOfArrival() != null ? trip.getPortOfArrival() : "DEL");
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec spec = new SecretKeySpec(
+                    qrSigningPepper.getBytes(StandardCharsets.UTF_8),
+                    "HmacSHA256"
+            );
+            mac.init(spec);
+            byte[] hmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            String signature = HexFormat.of().formatHex(hmac).substring(0, 16);
+            return payload + "|SIG:" + signature;
+        } catch (Exception e) {
+            log.warn("Failed to cryptographically sign QR token: {}", e.getMessage());
+            return payload;
+        }
+    }
 
     /**
      * Generate official ETA PDF grant letter using OpenPDF.

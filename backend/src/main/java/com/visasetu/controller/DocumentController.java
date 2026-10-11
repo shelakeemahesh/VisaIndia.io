@@ -10,11 +10,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,8 +30,8 @@ public class DocumentController {
     @GetMapping("/{referenceId}/eta-pdf")
     public ResponseEntity<?> downloadEtaPdf(
             @PathVariable String referenceId,
-            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
-            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String guestTokenParam
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @RequestParam(value = "token", required = false) String guestTokenParam
     ) {
         Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
@@ -40,6 +39,14 @@ public class DocumentController {
 
         if (trip == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+
+        // Must be in APPROVED status
+        if (!"APPROVED".equalsIgnoreCase(trip.getStatus())) {
+            log.warn("Unauthorized attempt to download ETA PDF for application {} with non-approved status {}", referenceId, trip.getStatus());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Official dossier / ETA PDF is only available for APPROVED applications. Current status: " + trip.getStatus()
+            ));
         }
 
         // Ownership and authorization check
@@ -51,9 +58,9 @@ public class DocumentController {
         } else if (trip.getGuestAccessToken() != null) {
             String guestToken = guestAccessToken != null ? guestAccessToken : guestTokenParam;
             boolean isMatchingToken = guestToken != null
-                    && java.security.MessageDigest.isEqual(
-                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                            guestToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    && MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(StandardCharsets.UTF_8),
+                            guestToken.trim().getBytes(StandardCharsets.UTF_8));
             boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
                     .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
                     .isPresent();
@@ -89,8 +96,8 @@ public class DocumentController {
     @GetMapping("/{referenceId}/qr-pass")
     public ResponseEntity<?> downloadQrPass(
             @PathVariable String referenceId,
-            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
-            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String guestTokenParam
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @RequestParam(value = "token", required = false) String guestTokenParam
     ) {
         Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
@@ -98,6 +105,14 @@ public class DocumentController {
 
         if (trip == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Application not found."));
+        }
+
+        // Must be in APPROVED status
+        if (!"APPROVED".equalsIgnoreCase(trip.getStatus())) {
+            log.warn("Unauthorized attempt to download QR pass for application {} with non-approved status {}", referenceId, trip.getStatus());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "QR entry pass is only available for APPROVED applications. Current status: " + trip.getStatus()
+            ));
         }
 
         // Ownership and authorization check
@@ -109,9 +124,9 @@ public class DocumentController {
         } else if (trip.getGuestAccessToken() != null) {
             String guestToken = guestAccessToken != null ? guestAccessToken : guestTokenParam;
             boolean isMatchingToken = guestToken != null
-                    && java.security.MessageDigest.isEqual(
-                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                            guestToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    && MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(StandardCharsets.UTF_8),
+                            guestToken.trim().getBytes(StandardCharsets.UTF_8));
             boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
                     .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
                     .isPresent();
@@ -130,10 +145,10 @@ public class DocumentController {
             }
         }
 
-        String qrContent = trip.getQrToken() != null
-                ? trip.getQrToken()
-                : "DOSSIER:" + trip.getReferenceId() + "|STATUS:" + trip.getStatus();
-
+        String qrContent = documentGenerationService.generateSignedQrToken(trip);
+        if (qrContent == null || qrContent.isBlank()) {
+            qrContent = trip.getQrToken() != null ? trip.getQrToken() : "DOSSIER:" + trip.getReferenceId() + "|STATUS:" + trip.getStatus();
+        }
         byte[] qrBytes = documentGenerationService.generateQrCodeImage(qrContent, 320, 320);
 
         HttpHeaders headers = new HttpHeaders();
