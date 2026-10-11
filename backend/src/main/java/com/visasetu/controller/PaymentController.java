@@ -65,6 +65,15 @@ public class PaymentController {
                         currentUserId.orElse(null), request.getReferenceId(), trip.getUserId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to initiate payment for this application."));
             }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("IDOR attempt: User {} attempted to create payment order for guest trip {} with mismatched email",
+                        currentUserId.orElse(null), request.getReferenceId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to initiate payment for this application."));
+            }
         }
 
         try {
@@ -113,6 +122,13 @@ public class PaymentController {
         if (trip.getUserId() != null) {
             boolean isOwner = currentUserId.isPresent() && trip.getUserId().equals(currentUserId.get());
             if (!isOwner && !SecurityUtils.hasRole("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
             }
         }

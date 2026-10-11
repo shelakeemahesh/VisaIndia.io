@@ -39,7 +39,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Explicit Public Endpoints Allowlist
+                        // 1. Admin Ingestion & Management
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/content/ingest").hasRole("ADMIN")
+
+                        // 2. Public Tracking & Razorpay Webhook
+                        .requestMatchers(HttpMethod.POST, "/api/v1/applications/track").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
+
+                        // 3. Explicit Public Endpoints Allowlist
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/eligibility/**",
@@ -54,12 +62,6 @@ public class SecurityConfig {
                                 "/actuator/health",
                                 "/error"
                         ).permitAll()
-
-                        // 2. Public Razorpay Webhook (verifies HMAC signature internally)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
-
-                        // 3. Admin Ingestion & Management
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
                         // 4. Protected Endpoints (Applications, Trips, Payments, Documents, Users, Settings)
                         .requestMatchers(

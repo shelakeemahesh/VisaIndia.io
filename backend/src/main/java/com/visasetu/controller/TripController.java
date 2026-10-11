@@ -236,6 +236,19 @@ public class TripController {
                         "error", "You do not have permission to view this application."
                 ));
             }
+        } else if (trip.getApplicantEmail() != null) {
+            // Guest application: only ADMIN or authenticated applicant with matching email can access
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("IDOR attempt: User {} attempted to access unowned trip {} with mismatched email",
+                        currentUserId.orElse(null), referenceId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "You do not have permission to view this application."
+                ));
+            }
         }
 
         List<TripModule> modules = tripService.getTripModules(trip.getId());

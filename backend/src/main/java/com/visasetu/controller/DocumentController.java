@@ -44,6 +44,14 @@ public class DocumentController {
                 log.warn("Unauthorized document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
             }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
+            }
         }
 
         byte[] pdfBytes = documentGenerationService.generateEtaPdf(trip);
@@ -74,6 +82,14 @@ public class DocumentController {
         if (trip.getUserId() != null) {
             if (currentUserId.isEmpty() || (!trip.getUserId().equals(currentUserId.get()) && !SecurityUtils.hasRole("ADMIN"))) {
                 log.warn("Unauthorized QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
             }
         }
