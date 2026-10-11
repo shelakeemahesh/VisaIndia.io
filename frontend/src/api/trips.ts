@@ -7,6 +7,7 @@ export interface TripDraftDto {
   currentStep: number;
   sharedProfileJson: string;
   modulesJson: string;
+  guestAccessToken?: string;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +81,8 @@ export interface TripDetailResponse {
     nationality: string;
     categoryName: string;
     status: string;
+    preparationStatus?: string;
+    guestAccessToken?: string;
     totalAmount: number;
     currency: string;
     arrivalDate: string;
@@ -139,6 +142,9 @@ export async function createOrGetDraft(
     nationality,
     categoryName,
   });
+  if (res.data.guestAccessToken) {
+    localStorage.setItem('visasetu_guest_access_token', res.data.guestAccessToken);
+  }
   return res.data;
 }
 
@@ -187,8 +193,14 @@ export async function submitDraft(
  * Fetch application details by reference ID.
  */
 export async function getTripByReference(referenceId: string): Promise<TripDetailResponse> {
-  const res = await apiClient.get<TripDetailResponse>(`/trips/${referenceId.trim()}`);
-  return res.data;
+  const res = await apiClient.get<any>(`/trips/${referenceId.trim()}`);
+  if (res.data && res.data.trip) {
+    return res.data as TripDetailResponse;
+  }
+  return {
+    trip: res.data,
+    modules: res.data?.modules || [],
+  } as TripDetailResponse;
 }
 
 /**
@@ -230,12 +242,16 @@ export async function resyncPayment(referenceId: string): Promise<{
  */
 export function getEtaPdfDownloadUrl(referenceId: string): string {
   const base = apiClient.defaults.baseURL || 'http://localhost:8080/api/v1';
-  return `${base}/documents/${encodeURIComponent(referenceId)}/eta-pdf`;
+  const guestToken = localStorage.getItem('visasetu_guest_access_token');
+  const tokenQuery = guestToken ? `?token=${encodeURIComponent(guestToken)}` : '';
+  return `${base}/documents/${encodeURIComponent(referenceId)}/eta-pdf${tokenQuery}`;
 }
 
 export function getQrPassImageUrl(referenceId: string): string {
   const base = apiClient.defaults.baseURL || 'http://localhost:8080/api/v1';
-  return `${base}/documents/${encodeURIComponent(referenceId)}/qr-pass`;
+  const guestToken = localStorage.getItem('visasetu_guest_access_token');
+  const tokenQuery = guestToken ? `?token=${encodeURIComponent(guestToken)}` : '';
+  return `${base}/documents/${encodeURIComponent(referenceId)}/qr-pass${tokenQuery}`;
 }
 
 export interface TripResponseDto {
@@ -246,6 +262,8 @@ export interface TripResponseDto {
   nationality: string;
   categoryName: string;
   status: string;
+  preparationStatus?: string;
+  guestAccessToken?: string;
   totalAmount: number;
   currency: string;
   arrivalDate: string;

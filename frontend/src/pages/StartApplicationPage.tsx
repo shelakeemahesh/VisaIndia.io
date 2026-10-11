@@ -13,6 +13,7 @@ import {
 import { PageTemplate } from '../components/PageTemplate';
 import {
   createOrGetDraft,
+  submitDraft,
   createPaymentOrder,
   resyncPayment,
   getTripByReference,
@@ -206,6 +207,20 @@ export const StartApplicationPage: React.FC = () => {
     try {
       const draft = await createOrGetDraft(email, nationality, selectedService);
       setRegisteredDraft(draft);
+
+      // Submit draft to persist Trip entity and allocate reference ID for payments
+      try {
+        await submitDraft(
+          draft.draftId,
+          draft.version,
+          `Applicant (${nationality})`,
+          expectedArrivalDate,
+          portOfArrival
+        );
+      } catch (submitErr) {
+        console.warn('Draft persisted; subsequent submit status note:', submitErr);
+      }
+
       setApplicationStatus('REGISTERED');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -321,7 +336,67 @@ export const StartApplicationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* PAYMENT & ADJUDICATION ACTIONS */}
+            {/* STATUTORY ADVISORY & OFFICIAL PORTAL HANDOFF */}
+            <div className="p-6 bg-gradient-to-r from-teal-950 via-slate-900 to-teal-900 text-white rounded-2xl mb-6 shadow-md border border-teal-800/40">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-teal-800/60">
+                <div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400 text-slate-950 inline-block mb-1">
+                    Ready For Official Submission
+                  </span>
+                  <h3 className="text-lg font-bold text-white">
+                    Continue on Official Government Portal
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                    Your preparation dossier is ready. Under Government of India regulations, official e-Visa applications and statutory consular fee payments must be finalized directly on the authorized portal: <strong className="text-amber-300">indianvisaonline.gov.in</strong>.
+                  </p>
+                </div>
+                <div className="flex-shrink-0">
+                  <a
+                    href="https://indianvisaonline.gov.in/evisa/Registration"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow transition-all hover:scale-[1.02]"
+                  >
+                    <span>Open Official Portal (indianvisaonline.gov.in)</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-xs text-slate-300">
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-800 text-teal-200 font-bold flex items-center justify-center text-[11px] flex-shrink-0">1</span>
+                  <span>Reference your pre-filled details and assigned Dossier Reference ID above.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-800 text-teal-200 font-bold flex items-center justify-center text-[11px] flex-shrink-0">2</span>
+                  <span>Upload your passport bio-page scan and compliant 2x2 photograph.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-800 text-teal-200 font-bold flex items-center justify-center text-[11px] flex-shrink-0">3</span>
+                  <span>Pay the statutory government fee securely via the official portal gateway.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* PREPARATION DOSSIER DOWNLOAD BANNER */}
+            <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div>
+                <span className="font-bold text-slate-900 block">Preparation Dossier & Pre-Filled Summary</span>
+                <span className="text-slate-500">Download your verified particulars sheet to reference while completing the official application.</span>
+              </div>
+              <a
+                href={getEtaPdfDownloadUrl(registeredDraft.referenceId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold flex items-center gap-2 whitespace-nowrap transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Preparation Dossier (PDF)</span>
+              </a>
+            </div>
+
+            {/* PAYMENT & ADJUDICATION ACTIONS (DEV / TEST ENVIRONMENT SIMULATION) */}
             {applicationStatus === 'REGISTERED' && (
               <div className="p-6 bg-teal-50 border border-teal-200 rounded-2xl mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -437,22 +512,40 @@ export const StartApplicationPage: React.FC = () => {
           </div>
         ) : (
           /* ================= MAIN OFFICIAL FORM ================= */
-          <form onSubmit={handleRegisterApplication} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            {/* OFFICIAL HEADER BANNER */}
-            <div className="bg-slate-900 text-white px-6 py-5 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-teal-500/20 border border-teal-500/40 rounded-xl text-teal-300">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight">
-                    Online e-Visa Application Form (Part A)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Bureau of Immigration · Mandatory Preliminary Particulars
-                  </p>
-                </div>
+          <div className="space-y-6">
+            {/* STATUTORY ADVISORY BANNER */}
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-950 leading-relaxed">
+                <strong>Independent Pre-Submission Assistant:</strong> VisaIndia.io helps travelers organize application particulars, verify eligibility, and validate document readiness. We do <em>not</em> issue visas, represent the Government of India, or collect statutory government fees. Final official submission and consular fee payment take place exclusively on the authorized government portal at{' '}
+                <a
+                  href="https://indianvisaonline.gov.in/evisa/Registration"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-bold text-amber-900 hover:text-amber-950"
+                >
+                  indianvisaonline.gov.in
+                </a>
+                .
               </div>
+            </div>
+
+            <form onSubmit={handleRegisterApplication} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* OFFICIAL HEADER BANNER */}
+              <div className="bg-slate-900 text-white px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-teal-500/20 border border-teal-500/40 rounded-xl text-teal-300">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white tracking-tight">
+                      Online e-Visa Application Form (Part A)
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Preparation Dossier & Pre-Submission Organizer · Mandatory Preliminary Particulars
+                    </p>
+                  </div>
+                </div>
               <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hidden sm:inline">
                 FORM REF: IVO-2026-A
               </span>
@@ -636,6 +729,66 @@ export const StartApplicationPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* PRE-SUBMISSION APPLICATION-READINESS CHECKLIST */}
+              <div className="p-5 bg-teal-50/60 rounded-2xl border border-teal-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-teal-950 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-teal-700" />
+                    <span>Application-Readiness Checklist (Verify Before Submission)</span>
+                  </h3>
+                  <span className="text-[11px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Pre-Submission Audit
+                  </span>
+                </div>
+                <p className="text-[11px] text-teal-800">
+                  Ensure you have the following materials ready according to official Indian immigration guidelines:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-teal-100 shadow-2xs">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="text-teal-600">✓</span>
+                      <span>Passport Photograph (2x2 in)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Recent front-facing color photo, white background, no glasses, min 350x350 px (JPEG, 10 KB to 1 MB).
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-teal-100 shadow-2xs">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="text-teal-600">✓</span>
+                      <span>Passport Bio-Page Scan</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Clear PDF scan with min 6 months validity from arrival date and at least 2 blank pages (10 KB to 300 KB).
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-teal-100 shadow-2xs">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="text-teal-600">✓</span>
+                      <span>Return / Onward Journey</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Confirmed return ticket or ticket for onward journey to another destination outside India.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-teal-100 shadow-2xs">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="text-teal-600">✓</span>
+                      <span>Category Purpose Documentation</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {selectedService.includes('Business')
+                        ? 'Business card and letter of invitation from Indian counterpart entity.'
+                        : selectedService.includes('Medical')
+                        ? 'Formal letter on letterhead from the accredited hospital in India.'
+                        : selectedService.includes('Conference')
+                        ? 'Invitation from organizer and administrative / nodal ministry clearance.'
+                        : 'Standard hotel reservations or local contact details for tourism.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* ROW 6: SECURITY CAPTCHA & STATUTORY DECLARATION */}
               <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
                 <div>
@@ -710,8 +863,9 @@ export const StartApplicationPage: React.FC = () => {
               </button>
             </div>
           </form>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
     </PageTemplate>
   );
 };

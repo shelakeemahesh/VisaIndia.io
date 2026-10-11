@@ -80,6 +80,15 @@ public class OtpService {
 
         if (authOtpRepository != null) {
             try {
+                // Invalidate any prior unused OTPs for same email & purpose
+                var priorList = authOtpRepository.findAllByEmailIgnoreCaseOrderByCreatedAtDesc(normalizedEmail);
+                for (AuthOtp p : priorList) {
+                    if (purpose.equalsIgnoreCase(p.getPurpose()) && Boolean.FALSE.equals(p.getUsed())) {
+                        p.setUsed(true);
+                        authOtpRepository.save(p);
+                    }
+                }
+
                 AuthOtp authOtp = AuthOtp.builder()
                         .email(normalizedEmail)
                         .otpCode(hashed)
@@ -113,31 +122,52 @@ public class OtpService {
         String normalizedEmail = email.trim().toLowerCase();
         String code = providedOtp.trim();
         String storeKey = normalizedEmail + ":" + purpose;
+        String providedHash = hashOtp(code);
 
-        OtpRecord record = otpStore.get(storeKey);
-        if (record == null) {
-            // Check database fallback
-            if (authOtpRepository != null) {
-                try {
-                    String providedHash = hashOtp(code);
-                    var dbOpt = authOtpRepository.findTopByEmailIgnoreCaseAndOtpCodeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                            normalizedEmail, providedHash, Instant.now()
-                    );
-                    if (dbOpt.isPresent() && purpose.equalsIgnoreCase(dbOpt.get().getPurpose())) {
-                        AuthOtp dbOtp = dbOpt.get();
-                        if (dbOtp.getAttempts() != null && dbOtp.getAttempts() >= MAX_ATTEMPTS) {
+        // Check persistent store first if available
+        if (authOtpRepository != null) {
+            try {
+                var list = authOtpRepository.findAllByEmailIgnoreCaseOrderByCreatedAtDesc(normalizedEmail);
+                for (AuthOtp dbOtp : list) {
+                    if (purpose.equalsIgnoreCase(dbOtp.getPurpose()) && Boolean.FALSE.equals(dbOtp.getUsed())
+                            && Instant.now().isBefore(dbOtp.getExpiresAt())) {
+                        int attempts = (dbOtp.getAttempts() != null ? dbOtp.getAttempts() : 0) + 1;
+                        dbOtp.setAttempts(attempts);
+
+                        if (attempts > MAX_ATTEMPTS) {
+                            log.warn("[OTP Service] Maximum verification attempts exceeded in DB for {}", maskEmail(normalizedEmail));
                             dbOtp.setUsed(true);
                             authOtpRepository.save(dbOtp);
+                            otpStore.remove(storeKey);
                             return false;
                         }
-                        dbOtp.setUsed(true);
-                        authOtpRepository.save(dbOtp);
-                        return true;
+
+                        boolean matches = MessageDigest.isEqual(
+                                dbOtp.getOtpCode().getBytes(StandardCharsets.UTF_8),
+                                providedHash.getBytes(StandardCharsets.UTF_8)
+                        );
+
+                        if (matches) {
+                            log.info("[OTP Service] Successfully verified OTP in DB for {} (Purpose: {})", maskEmail(normalizedEmail), purpose);
+                            dbOtp.setUsed(true);
+                            authOtpRepository.save(dbOtp);
+                            otpStore.remove(storeKey);
+                            return true;
+                        } else {
+                            authOtpRepository.save(dbOtp);
+                            log.warn("[OTP Service] Invalid OTP attempt for {} (Attempt {}/{})", maskEmail(normalizedEmail), attempts, MAX_ATTEMPTS);
+                            return false;
+                        }
                     }
-                } catch (Exception e) {
-                    log.debug("DB OTP fallback check: {}", e.getMessage());
                 }
+            } catch (Exception e) {
+                log.debug("DB OTP verification error: {}", e.getMessage());
             }
+        }
+
+        // Memory store check (fallback or standalone unit test context)
+        OtpRecord record = otpStore.get(storeKey);
+        if (record == null) {
             log.warn("[OTP Service] No active OTP found for {} with purpose {}", maskEmail(normalizedEmail), purpose);
             return false;
         }
@@ -155,7 +185,6 @@ public class OtpService {
             return false;
         }
 
-        String providedHash = hashOtp(code);
         boolean matches = MessageDigest.isEqual(
                 record.hashedCode.getBytes(StandardCharsets.UTF_8),
                 providedHash.getBytes(StandardCharsets.UTF_8)
@@ -164,19 +193,6 @@ public class OtpService {
         if (matches) {
             log.info("[OTP Service] Successfully verified OTP for {} (Purpose: {})", maskEmail(normalizedEmail), purpose);
             otpStore.remove(storeKey);
-
-            if (authOtpRepository != null) {
-                try {
-                    authOtpRepository.findTopByEmailIgnoreCaseAndOtpCodeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                            normalizedEmail, record.hashedCode, Instant.now()
-                    ).ifPresent(entity -> {
-                        entity.setUsed(true);
-                        authOtpRepository.save(entity);
-                    });
-                } catch (Exception e) {
-                    log.debug("DB OTP mark used: {}", e.getMessage());
-                }
-            }
             return true;
         }
 

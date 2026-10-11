@@ -44,13 +44,27 @@ public class TripService {
 
     @Transactional
     public Trip submitTripFromDraft(UUID draftId, UUID currentUserId, Long expectedVersion, String applicantName, String arrivalDateStr, String port) {
+        return submitTripFromDraft(draftId, currentUserId, null, expectedVersion, applicantName, arrivalDateStr, port);
+    }
+
+    @Transactional
+    public Trip submitTripFromDraft(UUID draftId, UUID currentUserId, String guestAccessToken, Long expectedVersion, String applicantName, String arrivalDateStr, String port) {
         TripDraft draft = tripDraftRepository.findById(draftId)
                 .orElseThrow(() -> new IllegalArgumentException("Draft not found: " + draftId));
 
         // IDOR Prevention: Check ownership
-        if (draft.getUserId() != null && currentUserId != null && !draft.getUserId().equals(currentUserId)) {
-            log.warn("IDOR attempt: User {} attempted to submit draft {} owned by {}", currentUserId, draftId, draft.getUserId());
-            throw new AccessDeniedException("You do not have permission to submit this application.");
+        if (draft.getUserId() != null) {
+            if (currentUserId == null || !draft.getUserId().equals(currentUserId)) {
+                log.warn("IDOR attempt: User {} attempted to submit draft {} owned by {}", currentUserId, draftId, draft.getUserId());
+                throw new AccessDeniedException("You do not have permission to submit this application.");
+            }
+        } else if (currentUserId == null && draft.getGuestAccessToken() != null) {
+            if (guestAccessToken == null || !java.security.MessageDigest.isEqual(
+                    draft.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    guestAccessToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+                log.warn("IDOR attempt: Invalid or missing guest token submitting draft {}", draftId);
+                throw new AccessDeniedException("Invalid or missing guest access token.");
+            }
         }
 
         // Prevent duplicate submissions
@@ -133,6 +147,8 @@ public class TripService {
         Trip trip = Trip.builder()
                 .referenceId(draft.getReferenceId())
                 .userId(draft.getUserId() != null ? draft.getUserId() : currentUserId)
+                .guestAccessToken(draft.getGuestAccessToken())
+                .preparationStatus("PREPARATION_IN_PROGRESS")
                 .applicantEmail(draft.getApplicantEmail())
                 .applicantName(applicantName != null && !applicantName.isBlank() ? applicantName.trim() : "Traveler " + draft.getReferenceId())
                 .passportNumberEncrypted(passportEncrypted)

@@ -13,6 +13,7 @@ import com.visasetu.repository.VisaRuleRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,9 @@ public class McpServerController {
     private final VisaCategoryDetailRepository visaCategoryDetailRepository;
     private final EntryPointRepository entryPointRepository;
     private final DemoApplicationRepository demoApplicationRepository;
+
+    @Value("${visasetu.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Data
     public static class McpRequest {
@@ -217,12 +221,13 @@ public class McpServerController {
                         .build();
                 demoApplicationRepository.save(draft);
 
+                String resumeLink = frontendUrl.replaceAll("/+$", "") + "/existing-applications?ref=" + ref;
                 return Map.of(
                         "content", List.of(Map.of(
                                 "type", "text",
-                                "text", "Draft prepared successfully with Reference ID: " + ref + ". GUARD-RAIL NOTICE: Automated agents cannot submit payment. The traveler must review and confirm at https://visasetu.demo/existing-applications?ref=" + ref,
+                                "text", "Draft prepared successfully with Reference ID: " + ref + ". GUARD-RAIL NOTICE: Automated agents cannot submit payment. The traveler must review and confirm at " + resumeLink,
                                 "referenceId", ref,
-                                "resumeUrl", "https://visasetu.demo/existing-applications?ref=" + ref
+                                "resumeUrl", resumeLink
                         ))
                 );
             }

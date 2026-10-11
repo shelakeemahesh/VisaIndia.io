@@ -15,5 +15,9 @@ apiClient.interceptors.request.use((config) => {
   if (token && !config.headers['Authorization']) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
+  const guestToken = localStorage.getItem('visasetu_guest_access_token');
+  if (guestToken && !config.headers['X-Guest-Access-Token']) {
+    config.headers['X-Guest-Access-Token'] = guestToken;
+  }
   return config;
 });

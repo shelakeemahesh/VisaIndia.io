@@ -29,7 +29,7 @@ public class PaymentOutboxPublisherService {
     @Scheduled(fixedDelay = 5000, initialDelay = 10000)
     @Transactional
     public void publishPendingMessages() {
-        List<PaymentOutboxMessage> pending = paymentOutboxRepository.findByStatusOrderByCreatedAtAsc("PENDING");
+        List<PaymentOutboxMessage> pending = paymentOutboxRepository.findByStatusForUpdate("PENDING");
         if (pending.isEmpty()) return;
 
         for (PaymentOutboxMessage msg : pending) {

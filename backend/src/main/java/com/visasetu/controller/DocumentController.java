@@ -29,7 +29,11 @@ public class DocumentController {
     private final DocumentGenerationService documentGenerationService;
 
     @GetMapping("/{referenceId}/eta-pdf")
-    public ResponseEntity<?> downloadEtaPdf(@PathVariable String referenceId) {
+    public ResponseEntity<?> downloadEtaPdf(
+            @PathVariable String referenceId,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String guestTokenParam
+    ) {
         Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
                 .orElse(null);
@@ -44,13 +48,35 @@ public class DocumentController {
                 log.warn("Unauthorized document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
             }
+        } else if (trip.getGuestAccessToken() != null) {
+            String guestToken = guestAccessToken != null ? guestAccessToken : guestTokenParam;
+            boolean isMatchingToken = guestToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            guestToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest document download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this document."));
+            }
         }
 
         byte[] pdfBytes = documentGenerationService.generateEtaPdf(trip);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "ETA-" + trip.getReferenceId() + ".pdf");
+        headers.setContentDispositionFormData("attachment", "Dossier-" + trip.getReferenceId() + ".pdf");
         headers.setContentLength(pdfBytes.length);
         headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
         headers.set("Pragma", "no-cache");
@@ -61,7 +87,11 @@ public class DocumentController {
     }
 
     @GetMapping("/{referenceId}/qr-pass")
-    public ResponseEntity<?> downloadQrPass(@PathVariable String referenceId) {
+    public ResponseEntity<?> downloadQrPass(
+            @PathVariable String referenceId,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken,
+            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String guestTokenParam
+    ) {
         Optional<UUID> currentUserId = SecurityUtils.getCurrentUserId();
         Trip trip = tripService.getTripByReference(referenceId.trim())
                 .orElse(null);
@@ -76,11 +106,33 @@ public class DocumentController {
                 log.warn("Unauthorized QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
             }
+        } else if (trip.getGuestAccessToken() != null) {
+            String guestToken = guestAccessToken != null ? guestAccessToken : guestTokenParam;
+            boolean isMatchingToken = guestToken != null
+                    && java.security.MessageDigest.isEqual(
+                            trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                            guestToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail() != null && trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+
+            if (!isMatchingToken && !isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
+            }
+        } else if (trip.getApplicantEmail() != null) {
+            boolean isMatchingEmail = SecurityUtils.getCurrentUserEmail()
+                    .filter(email -> trip.getApplicantEmail().equalsIgnoreCase(email))
+                    .isPresent();
+            if (!isMatchingEmail && !SecurityUtils.hasRole("ADMIN")) {
+                log.warn("Unauthorized guest QR pass download attempt for reference {} by user {}", referenceId, currentUserId.orElse(null));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to download this QR pass."));
+            }
         }
 
         String qrContent = trip.getQrToken() != null
                 ? trip.getQrToken()
-                : "ETA:" + trip.getReferenceId() + "|STATUS:" + trip.getStatus();
+                : "DOSSIER:" + trip.getReferenceId() + "|STATUS:" + trip.getStatus();
 
         byte[] qrBytes = documentGenerationService.generateQrCodeImage(qrContent, 320, 320);
 

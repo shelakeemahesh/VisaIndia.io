@@ -26,6 +26,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenService jwtTokenService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.visasetu.repository.UserRepository userRepository;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -38,9 +41,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7).trim();
             if (jwtTokenService.validateToken(token)) {
                 try {
+                    UUID userId = jwtTokenService.extractUserId(token);
+
+                    // Validate user active state and password changed revocation if repository is available
+                    if (userRepository != null) {
+                        var userOpt = userRepository.findById(userId);
+                        if (userOpt.isPresent()) {
+                            com.visasetu.domain.entity.User user = userOpt.get();
+                            if (Boolean.FALSE.equals(user.getIsActive())) {
+                                log.warn("Rejected authentication: Inactive user account {}", userId);
+                                filterChain.doFilter(request, response);
+                                return;
+                            }
+                            if (user.getPasswordChangedAt() != null) {
+                                java.util.Date issuedAt = jwtTokenService.extractIssuedAt(token);
+                                if (issuedAt != null && issuedAt.toInstant().isBefore(user.getPasswordChangedAt())) {
+                                    log.warn("Rejected authentication: Token revoked by password change for user {}", userId);
+                                    filterChain.doFilter(request, response);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
                     String email = jwtTokenService.extractEmail(token);
                     String role = jwtTokenService.extractRole(token);
-                    UUID userId = jwtTokenService.extractUserId(token);
 
                     UserPrincipal principal = new UserPrincipal(
                             userId,

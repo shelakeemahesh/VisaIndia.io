@@ -136,4 +136,23 @@ class ApplicationTrackingControllerTest {
                 .andExpect(jsonPath("$.status").value("RECONCILED"))
                 .andExpect(jsonPath("$.newTripStatus").value("UNDER_REVIEW"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/applications/track permits unauthenticated guest tracking")
+    void shouldPermitUnauthenticatedGuestTracking() throws Exception {
+        given(rateLimitingService.tryAcquire(anyString(), anyInt(), anyLong())).willReturn(true);
+        given(tripRepository.findByReferenceIdIgnoreCase("VS-2026-4011")).willReturn(Optional.empty());
+        given(demoApplicationRepository.findByReferenceIdIgnoreCaseAndApplicantEmailIgnoreCase("VS-2026-4011", "guest@example.com"))
+                .willReturn(Optional.of(DemoApplication.builder()
+                        .referenceId("VS-2026-4011")
+                        .applicantEmail("guest@example.com")
+                        .status("UNDER_REVIEW")
+                        .build()));
+
+        mockMvc.perform(post("/api/v1/applications/track")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referenceId\":\"VS-2026-4011\",\"email\":\"guest@example.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OTP_REQUIRED"));
+    }
 }

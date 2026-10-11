@@ -44,7 +44,7 @@ public class User {
 
     @Column(name = "email_verified", nullable = false)
     @Builder.Default
-    private Boolean emailVerified = true;
+    private Boolean emailVerified = false;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
@@ -57,6 +57,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private Instant updatedAt = Instant.now();
+
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;

@@ -105,6 +105,7 @@ const mapDtoToDashboardTrip = (dto: TripResponseDto): MockDashboardTrip => {
     currency: dto.currency || 'USD',
     etaNumber: dto.etaNumber || null,
     qrToken: dto.qrToken || null,
+    preparationStatus: dto.preparationStatus || (isApproved ? 'READY_FOR_OFFICIAL_HANDOFF' : 'PREPARATION_IN_PROGRESS'),
     modules: {
       eVisa: isApproved ? 'APPROVED' : isUnderReview ? 'UNDER_REVIEW' : 'PENDING',
       eArrival: 'COMPLETED',
@@ -126,6 +127,7 @@ interface MockDashboardTrip {
   portOfArrival: string;
   arrivalDate: string;
   status: 'APPROVED' | 'UNDER_REVIEW' | 'PAYMENT_PENDING' | 'DRAFT';
+  preparationStatus?: string;
   amount: number;
   currency: string;
   etaNumber: string | null;
@@ -967,6 +969,11 @@ export const DashboardPage: React.FC = () => {
                           >
                             {trip.status.replace('_', ' ')}
                           </span>
+                          {trip.preparationStatus && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-100 text-teal-800">
+                              {trip.preparationStatus.replace(/_/g, ' ')}
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-base font-bold text-slate-900 mt-1">
                           {trip.categoryName} · {trip.applicantName} ({trip.flagEmoji} {trip.nationality})
@@ -974,6 +981,16 @@ export const DashboardPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href="https://indianvisaonline.gov.in/evisa/Registration"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Official Portal Handoff ↗</span>
+                        </a>
+
                         {isApproved && (
                           <>
                             <a
@@ -1017,6 +1034,22 @@ export const DashboardPage: React.FC = () => {
                           <span>Sync Status</span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* STATUTORY ADVISORY NOTE */}
+                    <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span><strong>Independent Preparation Record:</strong> Final filing and statutory visa fee payment occur exclusively on the official government portal.</span>
+                      </div>
+                      <a
+                        href="https://indianvisaonline.gov.in/evisa/Registration"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold underline text-amber-950 whitespace-nowrap hover:text-amber-800"
+                      >
+                        Open indianvisaonline.gov.in ↗
+                      </a>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">

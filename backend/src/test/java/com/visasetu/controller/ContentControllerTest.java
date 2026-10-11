@@ -156,4 +156,22 @@ class ContentControllerTest {
                 .andExpect(jsonPath("$[0].noticeId").value("NOT-2026-08"))
                 .andExpect(jsonPath("$[0].severity").value("CRITICAL"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/content/ingest rejects unauthenticated requests")
+    void shouldRejectUnauthenticatedIngestion() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/content/ingest"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
+    @DisplayName("POST /api/v1/content/ingest allows ADMIN users to trigger ingestion")
+    void shouldAllowAdminIngestion() throws Exception {
+        given(contentIngestionService.runNightlyIngestion()).willReturn(java.util.Map.of("status", "SUCCESS"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/content/ingest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"));
+    }
 }

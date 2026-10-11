@@ -25,6 +25,9 @@ public class TripDraft {
     @Column(name = "user_id")
     private UUID userId;
 
+    @Column(name = "guest_access_token", length = 128)
+    private String guestAccessToken;
+
     @Column(name = "applicant_email", nullable = false, length = 150)
     private String applicantEmail;
 
