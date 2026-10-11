@@ -49,9 +49,21 @@ public class MockGovernmentDecisionService {
     }
 
     private void adjudicateTrip(Trip trip) {
-        // Business logic rule: Reject if name contains "Rejected" or "Deny"
-        boolean isRejected = trip.getApplicantName().toLowerCase().contains("reject")
-                || trip.getApplicantName().toLowerCase().contains("deny");
+        if (trip.getEtaNumber() != null && !trip.getEtaNumber().isBlank()) {
+            log.debug("Trip {} already has ETA number {}, skipping re-adjudication", trip.getReferenceId(), trip.getEtaNumber());
+            return;
+        }
+
+        if ("APPROVED".equalsIgnoreCase(trip.getStatus()) || "REJECTED".equalsIgnoreCase(trip.getStatus())) {
+            log.debug("Trip {} already in terminal status {}, skipping re-adjudication", trip.getReferenceId(), trip.getStatus());
+            return;
+        }
+
+        // Business logic rule: Reject only when explicitly marked with rejection keywords
+        String applicantName = trip.getApplicantName() != null ? trip.getApplicantName().trim().toLowerCase() : "";
+        boolean isRejected = applicantName.matches(".*\\b(reject|rejected|denied)\\b.*")
+                || applicantName.equalsIgnoreCase("reject")
+                || applicantName.contains("[REJECT]");
 
         if (isRejected) {
             trip.setStatus("REJECTED");

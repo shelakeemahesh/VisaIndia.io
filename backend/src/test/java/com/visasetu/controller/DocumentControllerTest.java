@@ -99,10 +99,28 @@ class DocumentControllerTest {
         byte[] fakePngBytes = new byte[]{1, 2, 3, 4};
 
         given(tripService.getTripByReference("VS-2026-4011")).willReturn(Optional.of(trip));
-        given(documentGenerationService.generateQrCodeImage(anyString(), anyInt(), anyInt())).willReturn(fakePngBytes);
+        given(documentGenerationService.generateSignedQrToken(any())).willReturn("ETA:VS-2026-4011");
+        given(documentGenerationService.generateQrCodeImage(any(), anyInt(), anyInt())).willReturn(fakePngBytes);
 
         mockMvc.perform(get("/api/v1/documents/VS-2026-4011/qr-pass"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("GET /api/v1/documents/{referenceId}/eta-pdf rejects non-approved application")
+    void shouldRejectEtaPdfWhenNotApproved() throws Exception {
+        Trip trip = Trip.builder()
+                .referenceId("VS-2026-PENDING")
+                .status("UNDER_REVIEW")
+                .applicantName("Pending Traveler")
+                .build();
+
+        given(tripService.getTripByReference("VS-2026-PENDING")).willReturn(Optional.of(trip));
+
+        mockMvc.perform(get("/api/v1/documents/VS-2026-PENDING/eta-pdf"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Official dossier / ETA PDF is only available for APPROVED applications. Current status: UNDER_REVIEW"));
     }
 }
