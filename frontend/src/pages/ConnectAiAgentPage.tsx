@@ -12,11 +12,17 @@ export const ConnectAiAgentPage: React.FC = () => {
   const [simResult, setSimResult] = useState<string | null>(null);
   const [simLoading, setSimLoading] = useState(false);
 
+  // Dynamic API & MCP endpoint resolution
+  const apiBase = apiClient.defaults.baseURL || 'http://localhost:8080/api/v1';
+  const originBase = apiBase.replace(/\/api\/v1\/?$/, '');
+  const mcpUrl = `${apiBase}/mcp`;
+  const llmsUrl = `${originBase}/llms.txt`;
+
   const claudeConfig = JSON.stringify(
     {
       mcpServers: {
         visasetu: {
-          url: 'http://localhost:8080/api/v1/mcp',
+          url: mcpUrl,
         },
       },
     },
@@ -28,13 +34,13 @@ export const ConnectAiAgentPage: React.FC = () => {
     {
       name: 'visasetu-agent',
       type: 'command',
-      url: 'http://localhost:8080/api/v1/mcp',
+      url: mcpUrl,
     },
     null,
     2
   );
 
-  const cliSnippet = `curl -X POST http://localhost:8080/api/v1/mcp \\
+  const cliSnippet = `curl -X POST ${mcpUrl} \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -75,9 +81,9 @@ export const ConnectAiAgentPage: React.FC = () => {
         },
       };
 
-      const res = await apiClient.post('/../mcp', payload).catch(async () => {
-        // Fallback directly to localhost API or local simulation
-        return await apiClient.post('http://localhost:8080/api/v1/mcp', payload);
+      const res = await apiClient.post('/mcp', payload).catch(async () => {
+        // Fallback directly to full MCP endpoint URL
+        return await apiClient.post(mcpUrl, payload);
       });
 
       setSimResult(JSON.stringify(res.data, null, 2));
@@ -108,7 +114,7 @@ export const ConnectAiAgentPage: React.FC = () => {
       title="Connect AI Agent & Model Context Protocol (MCP)"
       intro="Integrate VisaSetu directly into Claude Desktop, Cursor, or autonomous LLM agents via the Model Context Protocol to query visa options, check entry ports, and prepare drafts with safe-mode guardrails."
       breadcrumbs={[{ label: 'Connect AI Agent' }]}
-      sourceUrl="http://localhost:8080/llms.txt"
+      sourceUrl={llmsUrl}
       lastVerifiedDate="October 2026"
     >
       {/* SAFE MODE GUARDRAIL BANNER */}
@@ -145,7 +151,7 @@ export const ConnectAiAgentPage: React.FC = () => {
               The VisaSetu server runs an RFC-compliant JSON-RPC Model Context Protocol endpoint at:
             </p>
             <code className="block p-2 bg-slate-50 border border-slate-200 rounded text-[11px] font-mono text-teal-800 break-all">
-              http://localhost:8080/api/v1/mcp
+              {mcpUrl}
             </code>
           </div>
 
@@ -171,7 +177,7 @@ export const ConnectAiAgentPage: React.FC = () => {
               Your AI assistant now autonomously queries real immigration requirements, ports, and drafts applications for you.
             </p>
             <a
-              href="http://localhost:8080/llms.txt"
+              href={llmsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs font-semibold text-teal-700 hover:underline flex items-center gap-1"

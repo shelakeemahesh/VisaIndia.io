@@ -11,4 +11,4 @@ RUN addgroup -S visasetu && adduser -S visasetu -G visasetu
 USER visasetu
 COPY --from=builder /workspace/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:+UseZGC", "-XX:+ZGenerational", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
