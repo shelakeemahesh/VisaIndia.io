@@ -87,7 +87,16 @@ public class SecurityConfig {
                 .filter(s -> !s.isEmpty())
                 .toList();
 
-        config.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
+        // Support exact origins and dynamic cloud subdomains (Vercel & Render) with credentials
+        config.setAllowedOriginPatterns(new java.util.ArrayList<>(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://*.vercel.app",
+                "https://*.onrender.com"
+        )));
+        for (String origin : origins) {
+            config.addAllowedOriginPattern(origin);
+        }
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-ID", "X-Razorpay-Signature", "X-Razorpay-Event-Id", "X-Guest-Access-Token"));
         config.setExposedHeaders(List.of("X-Correlation-ID", "Authorization", "X-Guest-Access-Token"));
