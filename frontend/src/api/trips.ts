@@ -187,8 +187,14 @@ export async function submitDraft(
  * Fetch application details by reference ID.
  */
 export async function getTripByReference(referenceId: string): Promise<TripDetailResponse> {
-  const res = await apiClient.get<TripDetailResponse>(`/trips/${referenceId.trim()}`);
-  return res.data;
+  const res = await apiClient.get<any>(`/trips/${referenceId.trim()}`);
+  if (res.data && res.data.trip) {
+    return res.data as TripDetailResponse;
+  }
+  return {
+    trip: res.data,
+    modules: res.data?.modules || [],
+  } as TripDetailResponse;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 import { PageTemplate } from '../components/PageTemplate';
 import {
   createOrGetDraft,
+  submitDraft,
   createPaymentOrder,
   resyncPayment,
   getTripByReference,
@@ -206,6 +207,20 @@ export const StartApplicationPage: React.FC = () => {
     try {
       const draft = await createOrGetDraft(email, nationality, selectedService);
       setRegisteredDraft(draft);
+
+      // Submit draft to persist Trip entity and allocate reference ID for payments
+      try {
+        await submitDraft(
+          draft.draftId,
+          draft.version,
+          `Applicant (${nationality})`,
+          expectedArrivalDate,
+          portOfArrival
+        );
+      } catch (submitErr) {
+        console.warn('Draft persisted; subsequent submit status note:', submitErr);
+      }
+
       setApplicationStatus('REGISTERED');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {

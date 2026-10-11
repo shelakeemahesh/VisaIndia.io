@@ -38,7 +38,7 @@ export const ExistingApplicationsPage: React.FC = () => {
   const loadPreset = (presetRef: string, presetEmail: string) => {
     setReferenceId(presetRef);
     setEmail(presetEmail);
-    setOtp('123456');
+    setOtp('');
     setOtpRequired(false);
     setError(null);
     setResyncFeedback(null);
@@ -59,7 +59,7 @@ export const ExistingApplicationsPage: React.FC = () => {
       const data = await trackApplication(referenceId.trim(), email.trim(), otp ? otp.trim() : undefined);
       if (data.status === 'OTP_REQUIRED') {
         setOtpRequired(true);
-        setOtp('123456'); // Pre-fill demo verification code
+        setOtp('');
       } else {
         setResult(data);
         setOtpRequired(false);
@@ -82,7 +82,7 @@ export const ExistingApplicationsPage: React.FC = () => {
       const res = await resyncPayment(result.referenceId);
       setResyncFeedback(res.message);
       // Re-fetch updated application details
-      const updated = await trackApplication(result.referenceId, email, '123456');
+      const updated = await trackApplication(result.referenceId, email, otp ? otp.trim() : undefined);
       if (updated.timeline) {
         setResult(updated);
       }
@@ -193,13 +193,13 @@ export const ExistingApplicationsPage: React.FC = () => {
                   id="otp-input"
                   type="text"
                   maxLength={6}
-                  placeholder="123456"
+                  placeholder="Enter 6-digit code"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   className="w-full text-center tracking-widest font-mono text-base font-bold p-2 bg-white border border-teal-300 rounded-md focus:ring-teal-500"
                 />
                 <p className="text-[11px] text-teal-700 mt-1">
-                  Demo code <strong>123456</strong> dispatched to your email.
+                  Security verification code dispatched to your registered email address.
                 </p>
               </div>
             )}
