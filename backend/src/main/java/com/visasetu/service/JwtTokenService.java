@@ -1,10 +1,11 @@
 package com.visasetu.service;
 
+import com.visasetu.config.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -17,20 +18,33 @@ import java.util.UUID;
 @Slf4j
 public class JwtTokenService {
 
+    private final JwtProperties jwtProperties;
     private final SecretKey signingKey;
-    private final long tokenExpirationSeconds;
 
-    public JwtTokenService(
-            @Value("${visasetu.jwt.secret:VisaSetuEnterpriseSecretKeyForJwtSigningMustBeAtLeast256BitsLong2026}") String secret,
-            @Value("${visasetu.jwt.expiration-seconds:86400}") long tokenExpirationSeconds
-    ) {
+    @Autowired
+    public JwtTokenService(JwtProperties jwtProperties) {
+        this.jwtProperties = jwtProperties;
+        String secret = jwtProperties.getSecret();
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret must not be blank");
+        }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.tokenExpirationSeconds = tokenExpirationSeconds;
+    }
+
+    public JwtTokenService(String secret, long expirationSeconds) {
+        JwtProperties props = new JwtProperties();
+        props.setSecret(secret);
+        props.setExpirationSeconds(expirationSeconds);
+        this.jwtProperties = props;
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret must not be blank");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(UUID userId, String email, String role) {
         Instant now = Instant.now();
-        Instant expiry = now.plusSeconds(tokenExpirationSeconds);
+        Instant expiry = now.plusSeconds(jwtProperties.getEffectiveExpirationSeconds());
 
         return Jwts.builder()
                 .subject(userId.toString())
@@ -77,6 +91,6 @@ public class JwtTokenService {
     }
 
     public long getExpirationSeconds() {
-        return tokenExpirationSeconds;
+        return jwtProperties.getEffectiveExpirationSeconds();
     }
 }

@@ -22,3 +22,15 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
       - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+
+visasetu:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-hours: 24
+    expiration-seconds: 86400
+  security:
+    pii-encryption-key: dGhpcy1pcy1hLTMyLWJ5dGUtc2VjcmV0LWtleS0xMjM=
+  razorpay:
+    key-id: rzp_test_sample_key_12345
+    key-secret: sample_razorpay_secret_67890
+    webhook-secret: sample_webhook_secret_abcde

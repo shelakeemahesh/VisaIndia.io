@@ -17,7 +17,7 @@ INSERT INTO visa_category_detail (
     '30 continuous days per entry', 30,
     '$10 USD (April to June) / $25 USD (July to March)', 3, 4,
     FALSE, FALSE,
-    '["Recent passport-size color photograph (350x350 to 1000x1000 px, 10KB-1MB, white background)", "Passport biographical page scan (PDF or JPEG, 10KB-300KB) containing min 6 months validity", "Confirmed onward/return travel ticket", "Proof of sufficient financial funds"]'::jsonb,
+    '["Recent passport-size color photograph (350x350 to 1000x1000 px, 10KB-1MB, white background)", "Passport biographical page scan (PDF or JPEG, 10KB-300KB) containing min 6 months validity", "Confirmed onward/return travel ticket", "Proof of sufficient financial funds"]',
     'Entry permitted at 37 designated airports and 5 seaports. Exit permitted at all authorized ICPs.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -29,7 +29,7 @@ INSERT INTO visa_category_detail (
     'Continuous stay during each visit shall not exceed 90 days (180 days for USA, UK, Japan, Canada)', 90,
     '$40 USD for most nationalities (reciprocal variations apply)', 3, 4,
     FALSE, FALSE,
-    '["Recent color passport photograph (white background)", "Clear copy of passport biographical information page", "Sufficient financial means"]'::jsonb,
+    '["Recent color passport photograph (white background)", "Clear copy of passport biographical information page", "Sufficient financial means"]',
     'Entry at 37 designated international airports and 5 designated seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -41,7 +41,7 @@ INSERT INTO visa_category_detail (
     'Max 90 continuous days per visit (180 days for nationals of USA, UK, Japan, and Canada)', 90,
     '$80 USD for most eligible nationalities', 3, 4,
     FALSE, FALSE,
-    '["Recent color passport photo (white background)", "Color scan of original passport bio page", "Valid return or onward ticket"]'::jsonb,
+    '["Recent color passport photo (white background)", "Color scan of original passport bio page", "Valid return or onward ticket"]',
     'Entry permitted at 37 designated airports and 5 designated seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -53,7 +53,7 @@ INSERT INTO visa_category_detail (
     'Continuous stay up to 180 days per calendar year. (FRRO registration required if cumulative stay exceeds 180 days)', 180,
     '$80 USD to $100 USD (UK $100 USD, USA $100 USD)', 3, 4,
     FALSE, FALSE,
-    '["Recent passport-size color photograph", "Color copy of passport bio page", "Visiting card / Business card of applicant", "Invitation letter from Indian organization/firm with company letterhead and CIN"]'::jsonb,
+    '["Recent passport-size color photograph", "Color copy of passport bio page", "Visiting card / Business card of applicant", "Invitation letter from Indian organization/firm with company letterhead and CIN"]',
     'Entry permitted at 37 designated airports and 5 designated seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -65,7 +65,7 @@ INSERT INTO visa_category_detail (
     'Up to 60 days per trip with triple entry permissions within validity window', 60,
     '$80 USD for most nationalities', 3, 4,
     TRUE, FALSE,
-    '["Recent color photograph", "Passport biographical page scan", "Official letter from accredited hospital in India stating medical diagnosis and treatment schedule on hospital letterhead"]'::jsonb,
+    '["Recent color photograph", "Passport biographical page scan", "Official letter from accredited hospital in India stating medical diagnosis and treatment schedule on hospital letterhead"]',
     'Entry permitted at 37 designated airports and 5 designated seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -77,7 +77,7 @@ INSERT INTO visa_category_detail (
     'Matches the principal patient’s authorized duration of stay', 60,
     '$80 USD per attendant', 3, 4,
     TRUE, FALSE,
-    '["Color photo and passport bio page", "Copy of the principal e-Medical patient’s application reference or ETA approval letter"]'::jsonb,
+    '["Color photo and passport bio page", "Copy of the principal e-Medical patient’s application reference or ETA approval letter"]',
     'Must travel with or immediately follow the principal medical patient.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -89,7 +89,7 @@ INSERT INTO visa_category_detail (
     '30 continuous days', 30,
     '$80 USD for most nationalities', 3, 4,
     FALSE, FALSE,
-    '["Passport photo and bio page", "Formal invitation letter from conference organizer in India", "Political Clearance from Ministry of External Affairs (MEA)", "Event Security Clearance from Ministry of Home Affairs (MHA)"]'::jsonb,
+    '["Passport photo and bio page", "Formal invitation letter from conference organizer in India", "Political Clearance from Ministry of External Affairs (MEA)", "Event Security Clearance from Ministry of Home Affairs (MHA)"]',
     'Entry permitted at 37 designated airports and 5 seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 ),
@@ -101,7 +101,7 @@ INSERT INTO visa_category_detail (
     'Up to 180 days per visit', 180,
     '$80 USD', 3, 4,
     TRUE, FALSE,
-    '["Passport bio page and photo", "Letter from NABH/accredited Ayush wellness center or hospital in India specifying treatment program"]'::jsonb,
+    '["Passport bio page and photo", "Letter from NABH/accredited Ayush wellness center or hospital in India specifying treatment program"]',
     'Entry at 37 designated airports and 5 designated seaports.',
     'https://indianvisaonline.gov.in/evisa/tvoa.html', NOW()
 );
@@ -232,3 +232,18 @@ INSERT INTO demo_applications (
     'VS-2026-2048', 'claudia.muller@example.com', 'Claudia Müller', 'DEU', 'e-Tourist Visa (1 Year)',
     'PAYMENT_FAILED', 'order_demo_2048_fail', NULL, 40.00, '2026-11-10', 'Cochin (COK)', NULL, NOW() - INTERVAL '6 hours'
 );
+
+-- 6. DEMO USERS AND SETTINGS (Safe demo credentials, no plaintext passports)
+INSERT INTO users (id, email, full_name, nationality, passport_number, role, is_active, email_verified, created_at)
+VALUES 
+  ('11111111-1111-1111-1111-111111111111', 'kenji.sato@tokyo-travel.jp', 'Kenji Sato', 'Japan', NULL, 'ROLE_TRAVELER', true, true, NOW()),
+  ('22222222-2222-2222-2222-222222222222', 'e.watson@london-tech.co.uk', 'Emma Watson', 'United Kingdom', NULL, 'ROLE_TRAVELER', true, true, NOW()),
+  ('33333333-3333-3333-3333-333333333333', 'max.mueller@berlin-health.de', 'Max Müller', 'Germany', NULL, 'ROLE_TRAVELER', true, true, NOW())
+ON CONFLICT (email) DO UPDATE SET 
+  full_name = EXCLUDED.full_name,
+  nationality = EXCLUDED.nationality;
+
+INSERT INTO user_settings (user_id, email_notifications_enabled, arrival_reminders_enabled, advisory_alerts_enabled, auto_resync_enabled, language_preference)
+SELECT id, true, true, true, true, 'en' FROM users
+ON CONFLICT (user_id) DO NOTHING;
+

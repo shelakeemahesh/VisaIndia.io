@@ -30,10 +30,10 @@ public class DemoApplication {
     @Column(name = "applicant_name", nullable = false)
     private String applicantName;
 
-    @Column(nullable = false, length = 3)
+    @Column(nullable = false, length = 100)
     private String nationality;
 
-    @Column(name = "category_name", nullable = false, length = 100)
+    @Column(name = "category_name", nullable = false, length = 150)
     private String categoryName;
 
     @Column(nullable = false, length = 50)
