@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         }
 )
 @ActiveProfiles("test")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class SchemaValidationPostgresTest {
 
     @Container

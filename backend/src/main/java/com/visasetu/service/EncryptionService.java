@@ -97,8 +97,8 @@ public class EncryptionService {
             byte[] plainBytes = cipher.doFinal(encryptedData);
             return new String(plainBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            log.warn("Error decrypting sensitive data: {}", e.getMessage());
-            return "[ENCRYPTED]";
+            log.error("Error decrypting sensitive PII data: {}", e.getMessage());
+            throw new SecurityException("Failed to decrypt sensitive PII payload: invalid ciphertext or corrupted key", e);
         }
     }
 

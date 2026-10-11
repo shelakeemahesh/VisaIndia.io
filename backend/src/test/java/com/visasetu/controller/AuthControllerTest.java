@@ -55,6 +55,9 @@ class AuthControllerTest {
     @MockBean
     private RateLimitingService rateLimitingService;
 
+    @MockBean
+    private com.visasetu.service.EncryptionService encryptionService;
+
     @Test
     @DisplayName("POST /api/v1/auth/request-otp returns generic message without leaking code")
     void shouldRequestOtpSuccessfully() throws Exception {

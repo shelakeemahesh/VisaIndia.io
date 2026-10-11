@@ -54,6 +54,9 @@ public class AuthSecurityRegressionTest {
     @MockBean
     private RateLimitingService rateLimitingService;
 
+    @MockBean
+    private com.visasetu.service.EncryptionService encryptionService;
+
     @Test
     @DisplayName("Security: Hardcoded password bypasses (Welcome@123, password, admin123) are rejected")
     void shouldRejectHardcodedPasswordBypasses() throws Exception {

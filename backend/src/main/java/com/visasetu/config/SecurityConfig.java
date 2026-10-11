@@ -38,6 +38,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"error\":\"Full authentication is required to access this resource\",\"status\":401}");
+                }))
                 .authorizeHttpRequests(auth -> auth
                         // 1. Admin Ingestion & Management
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

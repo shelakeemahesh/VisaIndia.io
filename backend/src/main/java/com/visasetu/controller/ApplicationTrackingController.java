@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/applications")
@@ -174,15 +175,37 @@ public class ApplicationTrackingController {
     }
 
     @PostMapping("/resync-payment")
-    public ResponseEntity<?> resyncPayment(@RequestBody ResyncPaymentRequest request) {
+    public ResponseEntity<?> resyncPayment(
+            @RequestBody ResyncPaymentRequest request,
+            @RequestHeader(value = "X-Guest-Access-Token", required = false) String guestAccessToken
+    ) {
         if (request.getReferenceId() == null || request.getReferenceId().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Reference ID is required."));
         }
 
         String ref = request.getReferenceId().trim();
-        log.info("Triggering authoritative payment reconciliation for application {}", ref);
+        Optional<Trip> tripOpt = tripRepository.findByReferenceIdIgnoreCase(ref);
+        if (tripOpt.isPresent()) {
+            Trip trip = tripOpt.get();
+            Optional<UUID> currentUserId = com.visasetu.security.SecurityUtils.getCurrentUserId();
 
-        // Call authoritative payment reconciliation service without fabricating success
+            // Ownership enforcement
+            if (trip.getUserId() != null) {
+                if (currentUserId.isEmpty() || (!trip.getUserId().equals(currentUserId.get()) && !com.visasetu.security.SecurityUtils.hasRole("ADMIN"))) {
+                    log.warn("Unauthorized payment resync attempt on trip {} by user {}", ref, currentUserId.orElse(null));
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You do not have permission to resync payment for this application."));
+                }
+            } else if (trip.getGuestAccessToken() != null) {
+                if (guestAccessToken == null || !java.security.MessageDigest.isEqual(
+                        trip.getGuestAccessToken().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        guestAccessToken.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+                    log.warn("Unauthorized guest payment resync attempt on trip {}", ref);
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Invalid or missing guest access token."));
+                }
+            }
+        }
+
+        log.info("Authorized payment reconciliation for application {}", ref);
         Map<String, Object> result = paymentService.reconcilePayment(ref);
         return ResponseEntity.ok(result);
     }

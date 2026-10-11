@@ -5,6 +5,7 @@ import com.visasetu.domain.entity.UserSettings;
 import com.visasetu.repository.UserRepository;
 import com.visasetu.repository.UserSettingsRepository;
 import com.visasetu.security.SecurityUtils;
+import com.visasetu.service.EncryptionService;
 import com.visasetu.service.JwtTokenService;
 import com.visasetu.service.OtpService;
 import com.visasetu.service.RateLimitingService;
@@ -38,6 +39,7 @@ public class AuthController {
     private final JwtTokenService jwtTokenService;
     private final PasswordEncoder passwordEncoder;
     private final RateLimitingService rateLimitingService;
+    private final EncryptionService encryptionService;
 
     @Data
     public static class SignupRequestDto {
@@ -50,7 +52,7 @@ public class AuthController {
         private String fullName;
 
         @NotBlank(message = "Password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters long")
+        @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters long")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "Password must contain at least one letter and one number")
         private String password;
 
@@ -113,17 +115,23 @@ public class AuthController {
         private String otp;
 
         @NotBlank(message = "New password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters long")
+        @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters long")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "Password must contain at least one letter and one number")
         private String newPassword;
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xf = request.getHeader("X-Forwarded-For");
-        if (xf != null && !xf.isBlank()) {
-            return xf.split(",")[0].trim();
-        }
         return request.getRemoteAddr();
+    }
+
+    private String safeDecryptPassport(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        try {
+            return encryptionService.decrypt(raw);
+        } catch (Exception e) {
+            // In case of unencrypted legacy passport number in existing dev/test records
+            return raw;
+        }
     }
 
     @PostMapping("/signup")
@@ -136,7 +144,7 @@ public class AuthController {
         }
 
         String email = request.getEmail().trim().toLowerCase();
-        log.info("Processing signup for email: {}", email);
+        log.info("Processing signup for email: {}", OtpService.maskEmail(email));
 
         Optional<User> existingUserOpt = userRepository.findByEmailIgnoreCase(email);
         if (existingUserOpt.isPresent()) {
@@ -146,7 +154,18 @@ public class AuthController {
                         "error", "An account with this email address already exists. Please log in."
                 ));
             } else {
-                // Re-send verification OTP for unverified existing signup
+                // Unverified account: overwrite password hash (no trim) and profile particulars
+                existing.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+                existing.setFullName(request.getFullName().trim());
+                if (request.getNationality() != null) existing.setNationality(request.getNationality().trim());
+                if (request.getPassportNumber() != null) {
+                    existing.setPassportNumber(encryptionService.encrypt(request.getPassportNumber().trim()));
+                }
+                if (request.getPhoneNumber() != null) existing.setPhoneNumber(request.getPhoneNumber().trim());
+                existing.setUpdatedAt(Instant.now());
+                userRepository.save(existing);
+
+                // Re-send verification OTP
                 otpService.generateOtp(email, "SIGNUP_VERIFY");
                 return ResponseEntity.ok(Map.of(
                         "status", "VERIFICATION_REQUIRED",
@@ -156,12 +175,16 @@ public class AuthController {
             }
         }
 
+        String encryptedPassport = (request.getPassportNumber() != null && !request.getPassportNumber().isBlank())
+                ? encryptionService.encrypt(request.getPassportNumber().trim())
+                : null;
+
         User newUser = User.builder()
                 .email(email)
                 .fullName(request.getFullName().trim())
-                .passwordHash(passwordEncoder.encode(request.getPassword().trim()))
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .nationality(request.getNationality() != null ? request.getNationality().trim() : null)
-                .passportNumber(request.getPassportNumber() != null ? request.getPassportNumber().trim() : null)
+                .passportNumber(encryptedPassport)
                 .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber().trim() : null)
                 .role("ROLE_TRAVELER") // Never allow public signup to assign admin roles
                 .isActive(true)
@@ -233,7 +256,7 @@ public class AuthController {
                         "email", user.getEmail(),
                         "fullName", user.getFullName(),
                         "nationality", user.getNationality() != null ? user.getNationality() : "",
-                        "passportNumber", user.getPassportNumber() != null ? user.getPassportNumber() : "",
+                        "passportNumber", safeDecryptPassport(user.getPassportNumber()),
                         "role", user.getRole()
                 ),
                 "settings", settings != null ? Map.of(
@@ -289,9 +312,8 @@ public class AuthController {
                 ));
             }
         } else if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            String pwd = request.getPassword().trim();
-            // Strict BCrypt verification: no hardcoded bypasses
-            if (user.getPasswordHash() == null || !passwordEncoder.matches(pwd, user.getPasswordHash())) {
+            // Strict BCrypt verification without trim
+            if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
                         "error", "Invalid email or password."
                 ));
@@ -316,7 +338,7 @@ public class AuthController {
                         "email", user.getEmail(),
                         "fullName", user.getFullName() != null ? user.getFullName() : "",
                         "nationality", user.getNationality() != null ? user.getNationality() : "",
-                        "passportNumber", user.getPassportNumber() != null ? user.getPassportNumber() : "",
+                        "passportNumber", safeDecryptPassport(user.getPassportNumber()),
                         "role", user.getRole()
                 ),
                 "settings", settings != null ? Map.of(
@@ -383,6 +405,20 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "User account not found."));
         }
 
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "This account has been deactivated. Please contact support."
+            ));
+        }
+
+        if (Boolean.FALSE.equals(user.getEmailVerified())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Your email address is not yet verified. Please verify using the signup verification code.",
+                    "code", "EMAIL_NOT_VERIFIED",
+                    "email", email
+            ));
+        }
+
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
 
@@ -398,7 +434,7 @@ public class AuthController {
                         "email", user.getEmail(),
                         "fullName", user.getFullName() != null ? user.getFullName() : "",
                         "nationality", user.getNationality() != null ? user.getNationality() : "",
-                        "passportNumber", user.getPassportNumber() != null ? user.getPassportNumber() : "",
+                        "passportNumber", safeDecryptPassport(user.getPassportNumber()),
                         "role", user.getRole()
                 )
         ));
@@ -415,7 +451,7 @@ public class AuthController {
             ));
         }
 
-        log.info("Processing forgot-password for email: {}", email);
+        log.info("Processing forgot-password for email: {}", OtpService.maskEmail(email));
 
         if (userRepository.existsByEmailIgnoreCase(email)) {
             otpService.generateOtp(email, "PASSWORD_RESET");
@@ -455,7 +491,9 @@ public class AuthController {
             ));
         }
 
-        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+        // Overwrite password without trim, set passwordChangedAt to invalidate existing tokens
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordChangedAt(Instant.now());
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
@@ -480,7 +518,7 @@ public class AuthController {
                             "email", u.getEmail(),
                             "fullName", u.getFullName() != null ? u.getFullName() : "",
                             "nationality", u.getNationality() != null ? u.getNationality() : "",
-                            "passportNumber", u.getPassportNumber() != null ? u.getPassportNumber() : "",
+                            "passportNumber", safeDecryptPassport(u.getPassportNumber()),
                             "role", u.getRole(),
                             "createdAt", u.getCreatedAt().toString(),
                             "settings", s != null ? Map.of(

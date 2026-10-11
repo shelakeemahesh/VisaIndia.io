@@ -1,7 +1,10 @@
 package com.visasetu.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.visasetu.domain.entity.TripDraft;
 import com.visasetu.repository.TripDraftRepository;
+import com.visasetu.repository.TripRepository;
+import com.visasetu.security.OwnershipPolicy;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.Year;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,7 +25,12 @@ import java.util.UUID;
 @Slf4j
 public class TripDraftService {
 
+    private static final String ALPHANUMERIC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
     private final TripDraftRepository tripDraftRepository;
+    private final TripRepository tripRepository;
+    private final OwnershipPolicy ownershipPolicy;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -34,28 +42,25 @@ public class TripDraftService {
     public TripDraft createOrGetDraft(UUID userId, String email, String nationality, String categoryName) {
         String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
 
-        // Check if user has an existing unsubmitted draft
+        // 1. Authenticated user: STRICTLY isolated by userId to prevent draft cross-contamination
         if (userId != null) {
-            Optional<TripDraft> userDraft = tripDraftRepository.findByUserIdAndIsSubmittedFalse(userId);
+            Optional<TripDraft> userDraft = tripDraftRepository.findFirstByUserIdAndIsSubmittedFalseOrderByCreatedAtDesc(userId);
             if (userDraft.isPresent()) {
                 return userDraft.get();
             }
-        }
-
-        if (!normalizedEmail.isBlank()) {
-            Optional<TripDraft> emailDraft = tripDraftRepository.findByApplicantEmailIgnoreCaseAndIsSubmittedFalse(normalizedEmail);
-            if (emailDraft.isEmpty()) {
-                emailDraft = tripDraftRepository.findByApplicantEmailIgnoreCase(normalizedEmail)
-                        .filter(d -> !Boolean.TRUE.equals(d.getIsSubmitted()));
+        } else if (!normalizedEmail.isBlank()) {
+            // 2. Guest user: ONLY check unowned drafts belonging to this email
+            Optional<TripDraft> guestDraft = tripDraftRepository
+                    .findFirstByApplicantEmailIgnoreCaseAndIsSubmittedFalseOrderByCreatedAtDesc(normalizedEmail)
+                    .filter(d -> d.getUserId() == null);
+            if (guestDraft.isEmpty()) {
+                guestDraft = tripDraftRepository.findByApplicantEmailIgnoreCase(normalizedEmail)
+                        .filter(d -> d.getUserId() == null && !Boolean.TRUE.equals(d.getIsSubmitted()));
             }
-            if (emailDraft.isPresent()) {
-                TripDraft existing = emailDraft.get();
-                if (existing.getUserId() == null && userId != null) {
-                    existing.setUserId(userId);
-                    TripDraft saved = tripDraftRepository.save(existing);
-                    return saved != null ? saved : existing;
-                }
-                if (existing.getUserId() == null && existing.getGuestAccessToken() == null) {
+
+            if (guestDraft.isPresent()) {
+                TripDraft existing = guestDraft.get();
+                if (existing.getGuestAccessToken() == null) {
                     byte[] tokenBytes = new byte[32];
                     secureRandom.nextBytes(tokenBytes);
                     existing.setGuestAccessToken(HexFormat.of().formatHex(tokenBytes));
@@ -66,12 +71,27 @@ public class TripDraftService {
             }
         }
 
-        String refId = "VS-" + Year.now().getValue() + "-" + (1000 + secureRandom.nextInt(9000));
+        // 3. Create fresh draft with unique VS-2026-XXXXXXXXXX reference ID
+        String refId = generateUniqueReferenceId();
         String resolvedNationality = (nationality != null && !nationality.isBlank()) ? nationality.trim() : "USA";
         String resolvedCategory = (categoryName != null && !categoryName.isBlank()) ? categoryName.trim() : "e-Tourist Visa (30 Days)";
 
-        String initialProfile = "{\"nationality\":\"" + resolvedNationality + "\",\"categoryName\":\"" + resolvedCategory + "\"}";
-        String initialModules = "{\"eVisa\":{\"status\":\"DRAFT\"},\"eArrival\":{\"status\":\"DRAFT\"},\"eSuvidha\":{\"status\":\"DRAFT\"}}";
+        String initialProfile;
+        String initialModules;
+        try {
+            initialProfile = objectMapper.writeValueAsString(Map.of(
+                    "nationality", resolvedNationality,
+                    "categoryName", resolvedCategory
+            ));
+            initialModules = objectMapper.writeValueAsString(Map.of(
+                    "eVisa", Map.of("status", "DRAFT"),
+                    "eArrival", Map.of("status", "DRAFT"),
+                    "eSuvidha", Map.of("status", "DRAFT")
+            ));
+        } catch (Exception e) {
+            initialProfile = "{\"nationality\":\"" + resolvedNationality + "\",\"categoryName\":\"" + resolvedCategory + "\"}";
+            initialModules = "{\"eVisa\":{\"status\":\"DRAFT\"},\"eArrival\":{\"status\":\"DRAFT\"},\"eSuvidha\":{\"status\":\"DRAFT\"}}";
+        }
 
         String guestToken = null;
         if (userId == null) {
@@ -97,17 +117,28 @@ public class TripDraftService {
                 .build();
 
         TripDraft saved = tripDraftRepository.save(draft);
-        log.info("Initialized new TripDraft {} for user {} (Email: {})", refId, userId, normalizedEmail);
+        log.info("Initialized new TripDraft {} for user {} (Email: {})", refId, userId, OtpService.maskEmail(normalizedEmail));
         return saved;
+    }
+
+    private String generateUniqueReferenceId() {
+        for (int i = 0; i < 15; i++) {
+            StringBuilder sb = new StringBuilder("VS-2026-");
+            for (int j = 0; j < 10; j++) {
+                sb.append(ALPHANUMERIC.charAt(secureRandom.nextInt(ALPHANUMERIC.length())));
+            }
+            String candidate = sb.toString();
+            if (tripDraftRepository.findByReferenceIdIgnoreCase(candidate).isEmpty()
+                    && tripRepository.findByReferenceIdIgnoreCase(candidate).isEmpty()) {
+                return candidate;
+            }
+        }
+        return "VS-2026-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
     }
 
     private void validateDraftAccess(TripDraft draft, UUID currentUserId, String guestAccessToken, boolean isWrite) {
         if (draft.getUserId() != null) {
-            if (currentUserId == null || !draft.getUserId().equals(currentUserId)) {
-                log.warn("IDOR attempt: User {} attempted to access draft {} owned by {}",
-                        currentUserId, draft.getDraftId(), draft.getUserId());
-                throw new AccessDeniedException("You do not have permission to access this draft.");
-            }
+            ownershipPolicy.assertOwner(currentUserId, draft.getUserId());
         } else {
             // Unowned guest draft: authenticated user claiming draft on write
             if (currentUserId != null && isWrite) {

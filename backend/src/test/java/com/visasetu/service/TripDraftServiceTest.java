@@ -26,6 +26,12 @@ class TripDraftServiceTest {
     @Mock
     private TripDraftRepository tripDraftRepository;
 
+    @Mock
+    private com.visasetu.repository.TripRepository tripRepository;
+
+    @Mock
+    private com.visasetu.security.OwnershipPolicy ownershipPolicy;
+
     @InjectMocks
     private TripDraftService tripDraftService;
 

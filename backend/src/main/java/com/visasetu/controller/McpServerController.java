@@ -4,12 +4,12 @@ import com.visasetu.domain.entity.DemoApplication;
 import com.visasetu.domain.entity.EntryPoint;
 import com.visasetu.domain.entity.VisaCategoryDetail;
 import com.visasetu.domain.entity.VisaRule;
-import com.visasetu.domain.enums.RouteType;
 import com.visasetu.domain.enums.VisaPurpose;
 import com.visasetu.repository.DemoApplicationRepository;
 import com.visasetu.repository.EntryPointRepository;
 import com.visasetu.repository.VisaCategoryDetailRepository;
 import com.visasetu.repository.VisaRuleRepository;
+import com.visasetu.service.RateLimitingService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -32,6 +33,8 @@ public class McpServerController {
     private final VisaCategoryDetailRepository visaCategoryDetailRepository;
     private final EntryPointRepository entryPointRepository;
     private final DemoApplicationRepository demoApplicationRepository;
+    private final RateLimitingService rateLimitingService;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${visasetu.frontend.url:http://localhost:5173}")
     private String frontendUrl;
@@ -96,33 +99,53 @@ public class McpServerController {
         String method = request.getMethod();
         Object reqId = request.getId();
 
+        if ("initialize".equals(method)) {
+            Map<String, Object> initResult = Map.of(
+                    "protocolVersion", "2024-11-05",
+                    "serverInfo", Map.of(
+                            "name", "visasetu-mcp-server",
+                            "version", "1.0.0"
+                    ),
+                    "capabilities", Map.of("tools", Map.of())
+            );
+            return ResponseEntity.ok(createRpcSuccess(reqId, initResult));
+        }
+
         if ("tools/list".equals(method)) {
-            return ResponseEntity.ok(Map.of(
-                    "jsonrpc", "2.0",
-                    "id", reqId,
-                    "result", Map.of("tools", getAvailableTools())
-            ));
+            return ResponseEntity.ok(createRpcSuccess(reqId, Map.of("tools", getAvailableTools())));
         }
 
         if ("tools/call".equals(method)) {
             Map<String, Object> params = request.getParams() != null ? request.getParams() : Map.of();
             String toolName = (String) params.get("name");
+            if (toolName == null || toolName.isBlank()) {
+                return ResponseEntity.ok(createRpcError(reqId, -32602, "Missing tool name in params"));
+            }
+
             @SuppressWarnings("unchecked")
             Map<String, Object> arguments = (Map<String, Object>) params.getOrDefault("arguments", Map.of());
 
             Map<String, Object> result = executeTool(toolName, arguments);
-            return ResponseEntity.ok(Map.of(
-                    "jsonrpc", "2.0",
-                    "id", reqId,
-                    "result", result
-            ));
+            return ResponseEntity.ok(createRpcSuccess(reqId, result));
         }
 
-        return ResponseEntity.ok(Map.of(
-                "jsonrpc", "2.0",
-                "id", reqId,
-                "error", Map.of("code", -32601, "message", "Method not found: " + method)
-        ));
+        return ResponseEntity.ok(createRpcError(reqId, -32601, "Method not found: " + method));
+    }
+
+    private Map<String, Object> createRpcSuccess(Object id, Object result) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("jsonrpc", "2.0");
+        map.put("id", id);
+        map.put("result", result);
+        return map;
+    }
+
+    private Map<String, Object> createRpcError(Object id, int code, String message) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("jsonrpc", "2.0");
+        map.put("id", id);
+        map.put("error", Map.of("code", code, "message", message));
+        return map;
     }
 
     private List<Map<String, Object>> getAvailableTools() {
@@ -135,7 +158,7 @@ public class McpServerController {
                                 "properties", Map.of(
                                         "nationality", Map.of("type", "string", "description", "3-letter ISO code e.g. JPN, USA, GBR"),
                                         "purpose", Map.of("type", "string", "description", "TOURISM, BUSINESS, MEDICAL, CONFERENCE")
-                                ),
+                                        ),
                                 "required", List.of("nationality", "purpose")
                         )
                 ),
@@ -174,6 +197,10 @@ public class McpServerController {
     }
 
     private Map<String, Object> executeTool(String toolName, Map<String, Object> args) {
+        if (toolName == null) {
+            return Map.of("content", List.of(Map.of("type", "text", "text", "Tool name cannot be null.")));
+        }
+
         switch (toolName) {
             case "check_eligibility": {
                 String nat = (String) args.getOrDefault("nationality", "USA");
@@ -200,18 +227,28 @@ public class McpServerController {
                 return Map.of("content", List.of(Map.of("type", "text", "text", "Found " + pts.size() + " entry points.", "entryPoints", pts)));
             }
             case "prepare_draft": {
-                String ref = "VS-" + LocalDate.now().getYear() + "-" + (1000 + new Random().nextInt(9000));
                 String email = (String) args.get("applicantEmail");
                 String name = (String) args.get("applicantName");
+
+                if (email == null || email.isBlank() || name == null || name.isBlank()) {
+                    return Map.of("content", List.of(Map.of("type", "text", "text", "Validation error: applicantName and applicantEmail are required.")));
+                }
+
+                String normEmail = email.trim().toLowerCase();
+                if (!rateLimitingService.tryAcquire("mcp:prepare_draft:" + normEmail, 5, 300)) {
+                    return Map.of("content", List.of(Map.of("type", "text", "text", "Rate limit exceeded. Please wait 5 minutes before submitting another draft.")));
+                }
+
+                String ref = "VS-" + LocalDate.now().getYear() + "-" + (1000 + secureRandom.nextInt(9000));
                 String nat = (String) args.getOrDefault("nationality", "USA");
                 String catName = (String) args.getOrDefault("categoryName", "e-Tourist Visa (30 Days)");
 
                 DemoApplication draft = DemoApplication.builder()
                         .referenceId(ref)
-                        .applicantEmail(email)
-                        .applicantName(name)
-                        .nationality(nat)
-                        .categoryName(catName)
+                        .applicantEmail(normEmail)
+                        .applicantName(name.trim())
+                        .nationality(nat.trim())
+                        .categoryName(catName.trim())
                         .status("DRAFT")
                         .amount(new BigDecimal("25.00"))
                         .arrivalDate(LocalDate.now().plusDays(30))
